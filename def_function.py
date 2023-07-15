@@ -6,32 +6,41 @@ import gzip
 from def_class import *
 
 
-__version__ = "V1.0(Editor) 2023-07-13"
+__version__ = "V2.1(Editor) 2023-07-15"
 
 
 # Function
 def log(function):
+    name = function.__name__
     def wrapper(*args, **kwargs):
-        print('\n')
-        print("[Function]{} start.".format(function.__name__))
-        print("\t[Time]time: {}".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))))
+        tab = kwargs.get("tab_level", 0)
+
+        [print('\n') if tab == 0 else None]
+
+        print("{}[Function]{} start.".format('\t'*tab, name))
+        print("{}[Time]{}".format('\t'*(tab+1),
+                                  time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))))
         for key, value in kwargs.items():
             if type(value) in [int, str, bool, list]:
-                print("\t[Paraments]{}: {}".format(key, value))
+                print("{}[Paraments]{}: {}".format('\t'*(tab+1),
+                                                   key, value))
             else:
-                print('\t[Paraments]{}: <...>'.format(key, value))
+                print("{}[Paraments]{}: <...>".format('\t'*(tab+1),
+                                                      key))
         result = function(*args, **kwargs)
-        print("[{}]{} finished.".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())),
-                                        function.__name__))
+        print("{}[{}]{} finished.".format('\t'*tab,
+                                          time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())),
+                                          name))
         return result
     return wrapper
 
 
-def get_file_path(file_path, sample_name_list):
+def get_file_path(file_path, sample_name_list, tab_level=0):
     """
     input:
         file_path, str, data文件夹路径
         sample_name_list, list, 含有样本名的列表
+        tab_level, int, the parament for log format, there is no need to change
     change:
         搜索file_path下的每个样本文件夹中的文件名,
             记录annotation及quantification文件的绝对路径
@@ -58,7 +67,8 @@ def get_file_path(file_path, sample_name_list):
     return sample_file_location
 
 
-def load_annotation(input_filename, additional_info=["gene_id", "transcript_id", "gene_name"], only_type="transcript"):
+def load_annotation(input_filename, additional_info=["gene_id", "transcript_id", "gene_name"],
+                    only_type="transcript", tab_level=0):
     input_filename = input_filename
     additional_info_list = additional_info
     only_type = only_type
@@ -119,7 +129,8 @@ def load_annotation(input_filename, additional_info=["gene_id", "transcript_id",
 def load_quantification(input_filename,
                         sample_name,
                         cutoff_value=1,
-                        col=["annot_gene_id", "annot_transcript_id", "gene_novelty", "transcript_novelty"]):
+                        col=["annot_gene_id", "annot_transcript_id", "gene_novelty", "transcript_novelty"],
+                        tab_level=0):
     """
     input:
         input_filename, str, the absolute path of quantification file
@@ -148,7 +159,8 @@ def load_quantification(input_filename,
     return df
 
 
-def merge_quantification_annotation(quantification, annotation):
+def merge_quantification_annotation(quantification, annotation,
+                                    tab_level=0):
     df_quan = quantification
     df_annotation = annotation
 
@@ -164,7 +176,7 @@ def merge_quantification_annotation(quantification, annotation):
     return df
 
 
-def get_gene_info(df):
+def get_gene_info(df, tab_level=0):
     # 统计每个基因的TSS及TES的数量
     df = df
 
@@ -207,7 +219,8 @@ def get_gene_info(df):
 
 @log
 def load_sample(total, annotation_location, quantification_location, sample_name, 
-                counts_cutoff, annotation_col, quantification_col):
+                counts_cutoff, annotation_col, quantification_col,
+                tab_level=0):
     """
     input:
         total, Total, 含有整理的所有信息的对象
@@ -234,12 +247,15 @@ def load_sample(total, annotation_location, quantification_location, sample_name
     # 获取单个样本的transcript信息
     df_annotation = load_annotation(input_filename=annotation_location,
                                     additional_info=annotation_col,
-                                    only_type="transcript")
+                                    only_type="transcript",
+                                    tab_level=tab_level+1)
     df_quantification = load_quantification(input_filename=quantification_location,
                                             sample_name=sample_name,
                                             cutoff_value=counts_cutoff,
-                                            col=quantification_col)
-    df_temp = merge_quantification_annotation(df_quantification, df_annotation)
+                                            col=quantification_col,
+                                            tab_level=tab_level+1)
+    df_temp = merge_quantification_annotation(df_quantification, df_annotation,
+                                              tab_level=tab_level+1)
     df_temp[sample_name] = df_temp[sample_name].astype(int)
     df_temp["start"] = df_temp["start"].astype(int)
     df_temp["end"] = df_temp["end"].astype(int)
@@ -248,7 +264,8 @@ def load_sample(total, annotation_location, quantification_location, sample_name
     # 获取单个样本的gene信息
     gene_info = load_annotation(input_filename=annotation_location,
                                 additional_info=annotation_col,
-                                only_type="gene")
+                                only_type="gene",
+                                tab_level=tab_level+1)
     expressed_gene = list(set(df_temp["annot_gene_id"].to_list()))
     expressed_gene = pandas.DataFrame(expressed_gene)
     gene_info = pandas.merge(expressed_gene, gene_info, left_on=0, right_on="gene_id", how="left")
@@ -279,7 +296,8 @@ def load_sample(total, annotation_location, quantification_location, sample_name
     # 获取单个样本的exon信息
     exon_info = load_annotation(input_filename=annotation_location,
                                 additional_info=annotation_col,
-                                only_type="exon")
+                                only_type="exon",
+                                tab_level=tab_level+1)
     expressed_gene = list(set(df_temp["annot_transcript_id"].to_list()))
     expressed_gene = pandas.DataFrame(expressed_gene)
     exon_info = pandas.merge(expressed_gene, exon_info, left_on=0, right_on="transcript_id")
@@ -346,7 +364,7 @@ def load_sample(total, annotation_location, quantification_location, sample_name
     return total
 
 @log
-def save_df(total, file_path):
+def save_df(total, file_path, tab_level=0):
     """
     input:
         total, Total, 存储数据的对象
@@ -368,7 +386,7 @@ def save_df(total, file_path):
 
 
 @log
-def get_biotype_info(annotation_file_location):
+def get_biotype_info(annotation_file_location, tab_level=0):
     """
     input:
         annotation_file_location, str, the path of annotation file
@@ -432,7 +450,7 @@ def get_biotype_info(annotation_file_location):
     return biotype_dict
 
 
-def add_biotype_info(total, biotype_dict):
+def add_biotype_info(total, biotype_dict, tab_level=0):
     """
     input:
         total, Total, the object of Total
@@ -472,3 +490,32 @@ def add_biotype_info(total, biotype_dict):
     print("\t[result]the counts of transcript updated biotype: {}".format(num_transcript))
 
     return True
+
+
+@log
+def get_disease_sample_dict(sample_info, GEO_index=False, tab_level=0):
+    """
+    input:
+        sample_info, df, the df of sample_info.tsv
+        GEO_index, bool, GEO_id is index
+    change:
+        以dict形式存储疾病与样本之间的对应关系
+    output:
+        disease_sample_dict, dict, {disease1: [sample1, sample2,...], ...}
+    """
+    sample_info = sample_info
+    GEO_index = GEO_index
+
+    if GEO_index is False:
+        sample_info = sample_info.set_index("GEO_accession")
+    else:
+        pass
+
+    disease_sample_dict = {}
+    for sample in sample_info.index:
+        disease = sample_info.at[sample, "disease"]
+        temp = disease_sample_dict.get(disease, [])
+        temp.append(sample)
+        disease_sample_dict[disease] = temp
+
+    return disease_sample_dict
