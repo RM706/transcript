@@ -536,6 +536,6 @@ def load_sample_info(filename, tab_level=0):
     filename = filename
 
     sample_info = pandas.read_csv(filename, sep='\t')
-    sample_info["disease"] = sample_info["disease"].map(lambda x: x.replace(' ', _))
+    sample_info["disease"] = sample_info["disease"].map(lambda x: x.replace(' ', '_'))
 
     return sample_info
