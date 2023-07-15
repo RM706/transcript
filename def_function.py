@@ -6,7 +6,7 @@ import gzip
 from def_class import *
 
 
-__version__ = "V2.1(Editor) 2023-07-15"
+__version__ = "V2.2(Editor) 2023-07-15"
 
 
 # Function
@@ -518,4 +518,24 @@ def get_disease_sample_dict(sample_info, GEO_index=False, tab_level=0):
         temp.append(sample)
         disease_sample_dict[disease] = temp
 
+    print("{}[Result]disease_sample_dict: {}".format('\t'*(tab_level+1), disease_sample_dict))
+
     return disease_sample_dict
+
+
+@log
+def load_sample_info(filename, tab_level=0):
+    """
+    input:
+        读取sample_info.tsv文件
+    change:
+        读取sample_info文件, 对其中的disease列, 以下划线替换空格
+    output:
+        sample_info, pandas.DataFrame
+    """
+    filename = filename
+
+    sample_info = pandas.read_csv(filename, sep='\t')
+    sample_info["disease"] = sample_info["disease"].map(lambda x: x.replace(' ', _))
+
+    return sample_info
