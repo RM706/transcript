@@ -493,7 +493,7 @@ def add_biotype_info(total, biotype_dict, tab_level=0):
 
 
 @log
-def get_disease_sample_dict(sample_info, GEO_index=False, tab_level=0):
+def get_cell_line_sample_dict(sample_info, GEO_index=False, tab_level=0):
     """
     input:
         sample_info, df, the df of sample_info.tsv
@@ -501,7 +501,7 @@ def get_disease_sample_dict(sample_info, GEO_index=False, tab_level=0):
     change:
         以dict形式存储疾病与样本之间的对应关系
     output:
-        disease_sample_dict, dict, {disease1: [sample1, sample2,...], ...}
+        cell_line_sample_dict, dict, {disease1: [sample1, sample2,...], ...}
     """
     sample_info = sample_info
     GEO_index = GEO_index
@@ -511,16 +511,16 @@ def get_disease_sample_dict(sample_info, GEO_index=False, tab_level=0):
     else:
         pass
 
-    disease_sample_dict = {}
+    cell_line_sample_dict = {}
     for sample in sample_info.index:
-        disease = sample_info.at[sample, "disease"]
-        temp = disease_sample_dict.get(disease, [])
+        cell_line = sample_info.at[sample, "cell_line"]
+        temp = cell_line_sample_dict.get(cell_line, [])
         temp.append(sample)
-        disease_sample_dict[disease] = temp
+        cell_line_sample_dict[cell_line] = temp
 
-    print("{}[Result]disease_sample_dict: {}".format('\t'*(tab_level+1), disease_sample_dict))
+    print("{}[Result]cell_line_sample_dict: {}".format('\t'*(tab_level+1), cell_line_sample_dict))
 
-    return disease_sample_dict
+    return cell_line_sample_dict
 
 
 @log
