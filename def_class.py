@@ -22,7 +22,7 @@ class Total(object):
         #   str, 若该gene_id已被记录则返回'0', 若该gene_id未被记录(start未被记录)则返回'1',
         #        若该gene_id未被记录(start已被记录但end未被记录)则返回'2'
         #        若该gene_id未被记录(start与end均已被记录)则返回被记录的gene_id
-        
+
         if Gene.gene_id in self.gene_dict.keys():
             return '0'
         else:
@@ -40,7 +40,6 @@ class Total(object):
                         if existed_gene.end == Gene.end:
                             return existed_gene.gene_id
                 return '2'
-
 
     def add_gene(self, Gene):
         # change:
@@ -64,7 +63,6 @@ class Total(object):
             return "True"
         else:
             return check_exist
-
 
     def get_df(self, sample_name_list=[]):
         # change:
@@ -161,6 +159,28 @@ class Total(object):
             remain_num = len(gene_id_list)
 
         return df
+    
+    def get_exon_combination(self):
+        """
+        input:
+        change:
+            统计Total对象中每一个gene的exon
+        output:
+            exon_combination, dict, {"<gene_id1>": ["<exon1_start>-<exon1_end>",
+                                                    "<exon2_start>-<exon2_end>", ...
+                                                    ],
+                                     "<gene_id2>": ["<exon1_start>-<exon1_end>",
+                                                    "<exon2_start>-<exon2_end>", ...
+                                                    ], ...
+                                     } 
+        """
+        exon_combination = {}
+        for gene_id in self.gene_dict.keys():
+            gene_object = self.gene_dict.get(gene_id)
+            temp_exon_combination = gene_object.get_exon_combination()
+            exon_combination.update(temp_exon_combination)
+
+        return exon_combination
 
 
 # 定义一个类，以存储基因的相关信息
@@ -186,7 +206,6 @@ class Gene(object):
         self.strand = strand  # str
         self.start = int(start)  # int
         self.end = int(end)  # int
-        # 可删除 self.counts_dict = counts_dict  # {sample_name1: counts, sample_name2: counts, ...}
         self.transcript_dict = transcript_dict  # {<transcript_id>: {"transcript_name": <transcript_name>
                                                 #                    "transcript_biotype": <transcript_biotype="un_classified">,
                                                 #                    "range": [<start>, <end>],
@@ -196,7 +215,7 @@ class Gene(object):
                                                 #  <transcript_id>: ...,
                                                 #  ...
                                                 # }
-        self.exon_dict = exon_dict  # {start: [end], start: [end, end, ...], ...}
+        self.exon_dict = exon_dict  # {start: [end], start: [end, end, ...], ...}  int
 
     def __check_exon_exist(self, exon_start, exon_end):
         # change:
@@ -352,3 +371,47 @@ class Gene(object):
                 df.at[transcript_id, sample_name] = self.transcript_dict[transcript_id].get(sample_name, 0)
 
         return df
+    
+    def get_exon_combination(self):
+        """
+        input:
+        change:
+            统计该gene中的全部exon。遍历self.exon_dict, 得到exon, 以"<start>-<end>"形式返回每一个exon的位置.
+        output:
+            exon_combination, dict, {"<gene_id>": ["<exon1_start>-<exon1_end>",
+                                                   "<exon2_start>-<exon2_end>", ...
+                                                   ]
+                                     }
+        """
+        exon_combination = {}
+        for exon_start, exon_end_list in self.exon_dict.items():
+            for exon_end in exon_end_list:
+                temp = exon_combination.get(self.gene_id, [])
+                temp.append("{}-{}".format(exon_start, exon_end))
+                exon_combination[self.gene_id] = temp
+
+        return exon_combination
+
+    def get_transcript_according_exon(self, exon_checked):
+        """
+        input:
+            exon_checked, str, "<exon_start>-<exon_end>"
+        change:
+            查询gene中具有指定exon的transcript
+        output:
+            transcript_checked, list, ["transcript_id", ...]
+        """
+        exon_checked = exon_checked
+
+        exon_checked = [int(i) for i in exon_checked.split('-')]
+        exon_check_start = exon_checked[0]
+        exon_check_end = exon_checked[1]
+
+        transcript_checked = []
+        for transcript_id, transcript_info_dict in self.transcript_dict.items():
+            if exon_check_start in transcript_info_dict["exon_range"].keys():
+                end_list = transcript_info_dict["exon_range"][exon_check_start]
+                if exon_check_end in end_list:
+                    transcript_checked.append(transcript_id)
+        
+        return transcript_checked
