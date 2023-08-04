@@ -1,7 +1,7 @@
 import pandas
 
 
-class_version = "V1.0(Editor) 2023-07-13"
+class_version = "V2.0(Editor) 2023-08-04"
 
 
 # Class
@@ -187,11 +187,16 @@ class Total(object):
         change:
             遍历每一个gene对象，使用对象中的add_gene_classified方法
                 向对象添加gene_classified属性
+        output:
+            dict,\t {<gene_id>: {"range_start": set(range_start1, range_start2, ...),
+                                 "range_end": set(range_end1, range_end2, ...)}
+                     <gene_id>: ...}
         """
-        for gene_id in total.gene_dict.keys():
-            total.gene_dict[gene_id].add_gene_classified()
-        
-        return None
+        TSS_TES_dict = {}
+        for gene_id in self.gene_dict.keys():
+            TSS_TES_dict[gene_id] = self.gene_dict[gene_id].add_gene_classified()
+
+        return TSS_TES_dict
 
 
 # 定义一个类，以存储基因的相关信息
@@ -339,7 +344,6 @@ class Gene(object):
             self.transcript_dict[exist_mark][sample_name] = sample_counts
             return False
 
-
     def get_df(self, sample_name_list=[]):
         # change:
         #   整理该gene中的所有信息，返回一个pandas.DataFrame对象
@@ -384,7 +388,7 @@ class Gene(object):
                 df.at[transcript_id, sample_name] = self.transcript_dict[transcript_id].get(sample_name, 0)
 
         return df
-    
+
     def get_exon_combination(self):
         """
         input:
@@ -432,10 +436,12 @@ class Gene(object):
     def add_gene_classified(self):
         """
         change:
-            根据gene中所具有的转录起始位点及转录终止位点的数量，确定gene的类型(TSS-PAS, TSS-APA, ATSS-PAS, ATSS-APA-<isoform类型数>)
+            根据gene中所具有的转录起始位点及转录终止位点的数量，确定gene的类型(TSS-PAS, TSS-APA, ATSS-PAS, ATSS-APA)
                 将其类型作为gene的属性gene_classified添加到对象中
             注意：
                 1.已考虑正负链
+        output:
+            dict,\t {"range_start": range_start, "range_end": range_end}
         """
 
         range_start = set()
@@ -460,6 +466,6 @@ class Gene(object):
             if len(range_end) == 1:
                 self.gene_classified = "ATSS-PAS"
             else:
-                self.gene_classified = "ATSS-APA-{}".format(len(self.transcript_dict))
+                self.gene_classified = "ATSS-APA"
 
-        return None
+        return {"range_start": range_start, "range_end": range_end}
