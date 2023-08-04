@@ -159,7 +159,7 @@ class Total(object):
             remain_num = len(gene_id_list)
 
         return df
-    
+
     def get_exon_combination(self):
         """
         input:
@@ -181,6 +181,17 @@ class Total(object):
             exon_combination.update(temp_exon_combination)
 
         return exon_combination
+
+    def add_gene_classified(self):
+        """
+        change:
+            遍历每一个gene对象，使用对象中的add_gene_classified方法
+                向对象添加gene_classified属性
+        """
+        for gene_id in total.gene_dict.keys():
+            total.gene_dict[gene_id].add_gene_classified()
+        
+        return None
 
 
 # 定义一个类，以存储基因的相关信息
@@ -216,6 +227,8 @@ class Gene(object):
                                                 #  ...
                                                 # }
         self.exon_dict = exon_dict  # {start: [end], start: [end, end, ...], ...}  int
+        # 初始化属性
+        self.gene_classified = None
 
     def __check_exon_exist(self, exon_start, exon_end):
         # change:
@@ -413,5 +426,40 @@ class Gene(object):
                 end_list = transcript_info_dict["exon_range"][exon_check_start]
                 if exon_check_end in end_list:
                     transcript_checked.append(transcript_id)
-        
+
         return transcript_checked
+
+    def add_gene_classified(self):
+        """
+        change:
+            根据gene中所具有的转录起始位点及转录终止位点的数量，确定gene的类型(TSS-PAS, TSS-APA, ATSS-PAS, ATSS-APA-<isoform类型数>)
+                将其类型作为gene的属性gene_classified添加到对象中
+            注意：
+                1.已考虑正负链
+        """
+
+        range_start = set()
+        range_end = set()
+        for vdict in self.transcript_dict.values():
+            transcript_range = vdict.get("range")
+            # 根据gene的strand, 确定gene中存在的转录起始位点以及转录终止位点的位置
+            if self.strand == '-':
+                range_start.add(transcript_range[1])
+                range_end.add(transcript_range[0])
+            else:
+                range_start.add(transcript_range[0])
+                range_end.add(transcript_range[1])
+
+        # 根据gene中所具有的转录起始位点及转录终止位点的数量，确定gene的类型(TSS-PAS, TSS-APA, ATSS-PAS, ATSS-APA)
+        if len(range_start) == 1:
+            if len(range_end) == 1:
+                self.gene_classified = "TSS-PAS"
+            else:
+                self.gene_classified = "TSS-APA"
+        else:
+            if len(range_end) == 1:
+                self.gene_classified = "ATSS-PAS"
+            else:
+                self.gene_classified = "ATSS-APA-{}".format(len(self.transcript_dict))
+
+        return None
