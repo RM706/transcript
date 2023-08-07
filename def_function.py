@@ -6,7 +6,7 @@ import gzip
 from def_class import *
 
 
-__version__ = "V2.2(Editor) 2023-07-15"
+__version__ = "V2.3(Editor) 2023-08-05"
 
 
 # Function
@@ -499,7 +499,7 @@ def get_cell_line_sample_dict(sample_info, GEO_index=False, tab_level=0):
         sample_info, df, the df of sample_info.tsv
         GEO_index, bool, GEO_id is index
     change:
-        以dict形式存储疾病与样本之间的对应关系
+        以dict形式存储cellLine与样本之间的对应关系
     output:
         cell_line_sample_dict, dict, {disease1: [sample1, sample2,...], ...}
     """
@@ -507,16 +507,14 @@ def get_cell_line_sample_dict(sample_info, GEO_index=False, tab_level=0):
     GEO_index = GEO_index
 
     if GEO_index is False:
-        sample_info = sample_info.set_index("GEO_accession")
-    else:
         pass
+    else:
+        sample_info = sample_info.reset_index()
 
     cell_line_sample_dict = {}
-    for sample in sample_info.index:
-        cell_line = sample_info.at[sample, "cell_line"]
-        temp = cell_line_sample_dict.get(cell_line, [])
-        temp.append(sample)
-        cell_line_sample_dict[cell_line] = temp
+    sample_info_group = sample_info.groupby("cell_line")
+    for cellLine in sample_info_group.groups.keys():
+        cell_line_sample_dict[cellLine] = sample_info_group.get_group(cellLine)["GEO_accession"].to_list()
 
     print("{}[Result]cell_line_sample_dict: {}".format('\t'*(tab_level+1), cell_line_sample_dict))
 
