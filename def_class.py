@@ -1,17 +1,19 @@
 import pandas
 
 
-class_version = "V2.1(Editor) 2023-08-07"
+class_version = "V2.2(Editor) 2023-08-07"
 
 
 # Class
 # 声明一个类，存储所有gene的信息
 class Total(object):
-    def __init__(self, sample_list, gene_dict={}):
-        self.gene_dict = gene_dict  # 存储原始的Gene对象
+    def __init__(self, sample_list, gene_dict=None):
+        self.gene_dict = (gene_dict, {})[gene_dict is None]  # 存储原始的Gene对象
         self.sample_list = sample_list
         self.start_dict = {}  # 为了加快check_gene_id()的检索速度测试使用 {<start>: [<gene_id>, <gene_id>],
                               #                                          <start>: [<gene_id>, <gene_id>, <gene_id>, ...]}
+        self.cellLine = {}  # {<cellLine1>: [<sample1>, <sample2>, ...],
+                            #  <cellLine2>: [<sample1>, ...], ...}
 
     def __check_gene_id(self, Gene):
         # change:
@@ -79,7 +81,7 @@ class Total(object):
 
         df = {}
         columns = ["chr", "strand", "source", "gene_id", "gene_name", "gene_biotype",
-                "transcript_id", "transcript_name", "transcript_biotype", "transcript_start", "transcript_end"]
+                   "transcript_id", "transcript_name", "transcript_biotype", "transcript_start", "transcript_end"]
         columns = columns + ["{}_counts".format(sample) for sample in sampleNameList]
         columns = columns + ["{}_relative".format(sample) for sample in sampleNameList]
 
@@ -187,8 +189,10 @@ class Gene(object):
                                                 #                    "exon_range": {<start>: [<end>], <start>: [<end>, <end>], ...},
                                                 #                    "countsExpression" : {<sample_name1>: <expression>,
                                                 #                                          <sample_name2>: <expression>}
-                                                #                    ！"relativeExpression": {<sample_name1>: <expression>,
+                                                #                    "relativeExpression": {<sample_name1>: <expression>,
                                                 #                                           <sample_name2>: <expression>, ...}
+                                                #                    "cellLineExpression": {<cellLine1>: <expression>, 
+                                                #                                           <cellLine2>: <expression>, ...}
                                                 #  <transcript_id>: ...,
                                                 #  ...
                                                 # }
@@ -299,6 +303,7 @@ class Gene(object):
                                                    "exon_range": exon_range,
                                                    "countsExpression": {sample_name: sample_counts},
                                                    "relativeExpression": {},
+                                                   "cellLineExpression": {},
                                                    }
             return True
         else:
