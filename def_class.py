@@ -1,7 +1,7 @@
 import pandas
 
 
-class_version = "V2.0(Editor) 2023-08-04"
+class_version = "V2.1(Editor) 2023-08-07"
 
 
 # Class
@@ -64,99 +64,32 @@ class Total(object):
         else:
             return check_exist
 
-    def get_df(self, sample_name_list=[]):
-        # change:
-        #   整理该对象下所有gene的信息到一个df中
-        # output:
-        #   df, pandas.DataFrame, 含有列chr, strand, source, gene_id, gene_name, gene_biotype,
-        #                               transcript_id, transcript_name, transcript_biotype, transcript_start, transcript_end, sample_name...
-        sample_name_list = sample_name_list
+    def get_df(self, sample_name_list=None):
+        '''
+        input:
+            sample_name_list,\t list,\t 输出的df中所要包含的统计样本\n
+        change:
+            整理该对象下所有gene的信息到一个df中
+        output:
+            df,\t pandas.DataFrame,\t 含有列chr, strand, source, gene_id, gene_name, gene_biotype,
+                                        transcript_id, transcript_name, transcript_biotype,
+                                        transcript_start, transcript_end, ...\n
+        '''
+        sampleNameList = (sample_name_list, [])[sample_name_list is None]
 
-        gene_id_list = list(self.gene_dict.keys())
-        columns = ["chr", "strand", "source",
-                   "gene_id", "gene_name", "gene_biotype",
-                   "transcript_id", "transcript_name", "transcript_biotype",
-                   "transcript_start", "transcript_end"]
-        columns = columns + sample_name_list
-        df = pandas.DataFrame(columns=columns)
+        df = {}
+        columns = ["chr", "strand", "source", "gene_id", "gene_name", "gene_biotype",
+                "transcript_id", "transcript_name", "transcript_biotype", "transcript_start", "transcript_end"]
+        columns = columns + ["{}_counts".format(sample) for sample in sampleNameList]
+        columns = columns + ["{}_relative".format(sample) for sample in sampleNameList]
 
-        # 为了加快concat速度
-        remain_num = len(gene_id_list)  # 进度条
-        while remain_num != 0:
-            print("{}".format(remain_num), end='\r')  # 打印进度条
-
-            if remain_num >= 30:
-                temp1 = gene_id_list.pop()
-                temp2 = gene_id_list.pop()
-                temp3 = gene_id_list.pop()
-                temp4 = gene_id_list.pop()
-                temp5 = gene_id_list.pop()
-                temp6 = gene_id_list.pop()
-                temp7 = gene_id_list.pop()
-                temp8 = gene_id_list.pop()
-                temp9 = gene_id_list.pop()
-                temp10 = gene_id_list.pop()
-                temp11 = gene_id_list.pop()
-                temp12 = gene_id_list.pop()
-                temp13 = gene_id_list.pop()
-                temp14 = gene_id_list.pop()
-                temp15 = gene_id_list.pop()
-                temp16 = gene_id_list.pop()
-                temp17 = gene_id_list.pop()
-                temp18 = gene_id_list.pop()
-                temp19 = gene_id_list.pop()
-                temp20 = gene_id_list.pop()
-                temp21 = gene_id_list.pop()
-                temp22 = gene_id_list.pop()
-                temp23 = gene_id_list.pop()
-                temp24 = gene_id_list.pop()
-                temp25 = gene_id_list.pop()
-                temp26 = gene_id_list.pop()
-                temp27 = gene_id_list.pop()
-                temp28 = gene_id_list.pop()
-                temp29 = gene_id_list.pop()
-                temp30 = gene_id_list.pop()
-
-                temp1 = self.gene_dict[temp1].get_df(sample_name_list)
-                temp2 = self.gene_dict[temp2].get_df(sample_name_list)
-                temp3 = self.gene_dict[temp3].get_df(sample_name_list)
-                temp4 = self.gene_dict[temp4].get_df(sample_name_list)
-                temp5 = self.gene_dict[temp5].get_df(sample_name_list)
-                temp6 = self.gene_dict[temp6].get_df(sample_name_list)
-                temp7 = self.gene_dict[temp7].get_df(sample_name_list)
-                temp8 = self.gene_dict[temp8].get_df(sample_name_list)
-                temp9 = self.gene_dict[temp9].get_df(sample_name_list)
-                temp10 = self.gene_dict[temp10].get_df(sample_name_list)
-                temp11 = self.gene_dict[temp11].get_df(sample_name_list)
-                temp12 = self.gene_dict[temp12].get_df(sample_name_list)
-                temp13 = self.gene_dict[temp13].get_df(sample_name_list)
-                temp14 = self.gene_dict[temp14].get_df(sample_name_list)
-                temp15 = self.gene_dict[temp15].get_df(sample_name_list)
-                temp16 = self.gene_dict[temp16].get_df(sample_name_list)
-                temp17 = self.gene_dict[temp17].get_df(sample_name_list)
-                temp18 = self.gene_dict[temp18].get_df(sample_name_list)
-                temp19 = self.gene_dict[temp19].get_df(sample_name_list)
-                temp20 = self.gene_dict[temp20].get_df(sample_name_list)
-                temp21 = self.gene_dict[temp21].get_df(sample_name_list)
-                temp22 = self.gene_dict[temp22].get_df(sample_name_list)
-                temp23 = self.gene_dict[temp23].get_df(sample_name_list)
-                temp24 = self.gene_dict[temp24].get_df(sample_name_list)
-                temp25 = self.gene_dict[temp25].get_df(sample_name_list)
-                temp26 = self.gene_dict[temp26].get_df(sample_name_list)
-                temp27 = self.gene_dict[temp27].get_df(sample_name_list)
-                temp28 = self.gene_dict[temp28].get_df(sample_name_list)
-                temp29 = self.gene_dict[temp29].get_df(sample_name_list)
-                temp30 = self.gene_dict[temp30].get_df(sample_name_list)
-                df = pandas.concat([df, temp1, temp2, temp3, temp4, temp5, temp6, temp7, temp8, temp9, temp10,
-                                    temp11, temp12, temp13, temp14, temp15, temp16, temp17, temp18, temp19, temp20,
-                                    temp21, temp22, temp23, temp24, temp25, temp26, temp27, temp28, temp29, temp30],
-                                    axis=0)
-            else:
-                temp1 = gene_id_list.pop()
-                temp1 = self.gene_dict[temp1].get_df(sample_name_list)
-                df = pandas.concat([df, temp1], axis=0)
-
-            remain_num = len(gene_id_list)
+        # 获取所有gene中所有transcript的信息
+        for geneId, geneObject in self.gene_dict.items():
+            df.update(geneObject.getTranscriptInfo(sampleNameList=sample_name_list))
+        # 将dict转为df
+        df = pandas.DataFrame.from_dict(df, orient="index", columns=columns)
+        # 美化格式
+        df = df.sort_values(by=["strand", "chr"])
 
         return df
 
@@ -373,50 +306,44 @@ class Gene(object):
             self.transcript_dict[exist_mark]["countsExpression"][sample_name] = sample_counts
             return False
 
-    def get_df(self, sample_name_list=[]):
-        # change:
-        #   整理该gene中的所有信息，返回一个pandas.DataFrame对象
-        # output:
-        #   df, pandas.DataFrame, 含有列chr, strand, source, gene_id, transcript_id, transcript_start, transcript_end, sample_name...
-        sample_name_list = sample_name_list
+    def getTranscriptInfo(self, geneInfo=True, sampleNameList=None):
+        '''
+        input:
+            geneInfo,\t bool,\t, 是否要在dict中保留gene的相关信息(strand, gene_id等)
+            sampleNameList,\t list,\t 需要进行展示的统计样本的list
+        change:
+            整理该gene中的所有信息，返回一个dict
+        output:
+            info, dict, {<transcriptId>: {"chr": <chr>, "strand": <strand>, "source": <source>,
+                                        "gene_id": <gene_id>, "gene_name": <gene_name>, "gene_biotype": <gene_biotype>,
+                                        "transcript_id": <transcript_id>, "transcript_name": <transcript_name>, "transcript_biotype", <transcript_biotype>,
+                                        ...},
+                        <transcriptId>: ...}
+        '''
+        geneInfo = geneInfo
+        sampleNameList = (sampleNameList, [])[sampleNameList is None]
 
-        chr = self.chr
-        strand = self.strand
-        source = self.source
-        gene_id = self.gene_id
-        gene_name = self.gene_name
-        gene_biotype = self.gene_biotype
+        info = {}
+        for transcriptId, transcriptObject in self.transcript_dict.items():
+            info[transcriptId] = {"transcript_id": transcriptId,
+                                "transcript_name": transcriptObject["transcript_name"],
+                                "transcript_biotype": transcriptObject["transcript_biotype"],
+                                "transcript_start": transcriptObject["range"][0],
+                                "transcript_end": transcriptObject["range"][1],
+                                }
+            if geneInfo is True:
+                info[transcriptId].update({"chr": self.chr,
+                                        "strand": self.strand,
+                                        "source": self.source,
+                                        "gene_id": self.gene_id,
+                                        "gene_name": self.gene_name,
+                                        "gene_biotype": self.gene_biotype,
+                                        })
+            for sample_name in sampleNameList:
+                info[transcriptId]["{}_counts".format(sample_name)] = transcriptObject["countsExpression"].get(sample_name, 0)
+                info[transcriptId]["{}_relative".format(sample_name)] = transcriptObject["relativeExpression"].get(sample_name, 0)
 
-        columns = ["chr", "strand", "source",
-                   "gene_id", "gene_name", "gene_biotype",
-                   "transcript_id", "transcript_name", "transcript_biotype",
-                   "transcript_start", "transcript_end"]
-        columns = columns + sample_name_list
-        df = pandas.DataFrame(index=list(self.transcript_dict.keys()),
-                              columns=columns)
-
-        for transcript_id in self.transcript_dict.keys():
-            transcript_name = self.transcript_dict[transcript_id]["transcript_name"]
-            transcript_biotype = self.transcript_dict[transcript_id]["transcript_biotype"]
-            transcript_start = self.transcript_dict[transcript_id]["range"][0]
-            transcript_end = self.transcript_dict[transcript_id]["range"][1]
-
-            df.at[transcript_id, "chr"] = chr
-            df.at[transcript_id, "strand"] = strand
-            df.at[transcript_id, "source"] = source
-            df.at[transcript_id, "gene_id"] = gene_id
-            df.at[transcript_id, "gene_name"] = gene_name
-            df.at[transcript_id, "gene_biotype"] = gene_biotype
-            df.at[transcript_id, "transcript_id"] = transcript_id
-            df.at[transcript_id, "transcript_name"] = transcript_name
-            df.at[transcript_id, "transcript_biotype"] = transcript_biotype
-            df.at[transcript_id, "transcript_start"] = transcript_start
-            df.at[transcript_id, "transcript_end"] = transcript_end
-
-            for sample_name in sample_name_list:
-                df.at[transcript_id, sample_name] = self.transcript_dict[transcript_id]["countsExpression"].get(sample_name, 0)
-
-        return df
+        return info
 
     def get_exon_combination(self):
         """
