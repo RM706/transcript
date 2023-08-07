@@ -198,6 +198,32 @@ class Total(object):
 
         return TSS_TES_dict
 
+    def computeRelativeExpression(self):
+        sampleList = self.sample_list  # list, 存储所有样本的样本名
+
+        # 统计每个样本中所有transcript的rep值的和, 以供后续计算样本中的相对表达值
+        countsSample = {sample: 0 for sample in sampleList}
+        for geneId, geneObject in self.gene_dict.items():
+            # 遍历每一个gene
+            for transcriptId, transcriptObject in geneObject.transcript_dict.items():
+                # 遍历每一个transcript
+                for sample, rep in transcriptObject["countsExpression"].items():
+                    # 遍历transcript在每个样本中的计数
+                    countsSample[sample] = countsSample.get(sample, 0) + rep
+
+        # 对每个transcript计算相对表达值
+        for geneId, geneObject in self.gene_dict.items():
+            # 遍历每一个gene
+            for transcriptId, transcriptObject in geneObject.transcript_dict.items():
+                # 遍历每一个transcript
+                for sample, rep in transcriptObject["countsExpression"].items():
+                    # 遍历transcript在每个样本中的计数
+                    # 计算每个transcript在每个样本中的相对表达值
+                    # 单个transcript在单个样本中的相对表达值 = 10^6 * 单个transcript在单个样本中的计数/单个样本中所有transcript的计数的和
+                    self.gene_dict[geneId].transcript_dict[transcriptId]["relativeExpression"][sample] = rep / countsSample[sample] * 10**6
+
+        return None
+
 
 # 定义一个类，以存储基因的相关信息
 #   具有属性：染色体号，source，正负链，start/end，包含的转录本id
@@ -226,9 +252,7 @@ class Gene(object):
                                                 #                    "transcript_biotype": <transcript_biotype="un_classified">,
                                                 #                    "range": [<start>, <end>],
                                                 #                    "exon_range": {<start>: [<end>], <start>: [<end>, <end>], ...},
-                                                #                    ！<sample_name1>: <counts>,
-                                                #                    ！<sample_name2>: <counts>, ...,
-                                                #                    ！"countsExpression" : {<sample_name1>: <expression>,
+                                                #                    "countsExpression" : {<sample_name1>: <expression>,
                                                 #                                          <sample_name2>: <expression>}
                                                 #                    ！"relativeExpression": {<sample_name1>: <expression>,
                                                 #                                           <sample_name2>: <expression>, ...}
@@ -340,7 +364,8 @@ class Gene(object):
                                                    "transcript_biotype": transcript_biotype,
                                                    "range": [start, end],
                                                    "exon_range": exon_range,
-                                                   "countsExpression": {sample_name: sample_counts}
+                                                   "countsExpression": {sample_name: sample_counts},
+                                                   "relativeExpression": {},
                                                    }
             return True
         else:
