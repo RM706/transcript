@@ -226,8 +226,12 @@ class Gene(object):
                                                 #                    "transcript_biotype": <transcript_biotype="un_classified">,
                                                 #                    "range": [<start>, <end>],
                                                 #                    "exon_range": {<start>: [<end>], <start>: [<end>, <end>], ...},
-                                                #                    <sample_name1>: <counts>,
-                                                #                    <sample_name2>: <counts>, ...},
+                                                #                    ！<sample_name1>: <counts>,
+                                                #                    ！<sample_name2>: <counts>, ...,
+                                                #                    ！"countsExpression" : {<sample_name1>: <expression>,
+                                                #                                          <sample_name2>: <expression>}
+                                                #                    ！"relativeExpression": {<sample_name1>: <expression>,
+                                                #                                           <sample_name2>: <expression>, ...}
                                                 #  <transcript_id>: ...,
                                                 #  ...
                                                 # }
@@ -336,12 +340,12 @@ class Gene(object):
                                                    "transcript_biotype": transcript_biotype,
                                                    "range": [start, end],
                                                    "exon_range": exon_range,
-                                                   sample_name: sample_counts
+                                                   "countsExpression": {sample_name: sample_counts}
                                                    }
             return True
         else:
             # 仅更新exist_transcript_id在相应样本中的counts数
-            self.transcript_dict[exist_mark][sample_name] = sample_counts
+            self.transcript_dict[exist_mark]["countsExpression"][sample_name] = sample_counts
             return False
 
     def get_df(self, sample_name_list=[]):
@@ -385,7 +389,7 @@ class Gene(object):
             df.at[transcript_id, "transcript_end"] = transcript_end
 
             for sample_name in sample_name_list:
-                df.at[transcript_id, sample_name] = self.transcript_dict[transcript_id].get(sample_name, 0)
+                df.at[transcript_id, sample_name] = self.transcript_dict[transcript_id]["countsExpression"].get(sample_name, 0)
 
         return df
 
@@ -436,7 +440,7 @@ class Gene(object):
     def add_gene_classified(self):
         """
         change:
-            根据gene中所具有的转录起始位点及转录终止位点的数量，确定gene的类型(TSS-PAS, TSS-APA, ATSS-PAS, ATSS-APA)
+            根据gene中所具有的转录起始位点及转录终止位点的数量, 确定gene的类型(TSS-PAS, TSS-APA, ATSS-PAS, ATSS-APA)
                 将其类型作为gene的属性gene_classified添加到对象中
             注意：
                 1.已考虑正负链
@@ -457,6 +461,10 @@ class Gene(object):
                 range_end.add(transcript_range[1])
 
         # 根据gene中所具有的转录起始位点及转录终止位点的数量，确定gene的类型(TSS-PAS, TSS-APA, ATSS-PAS, ATSS-APA)
+        self.gene_classified = "{}-{}".format(("ATSS", "TSS")[len(range_start)==1],
+                                              ("APA", "PAS")[len(range_end)==1]
+                                              )
+        '''
         if len(range_start) == 1:
             if len(range_end) == 1:
                 self.gene_classified = "TSS-PAS"
@@ -467,5 +475,6 @@ class Gene(object):
                 self.gene_classified = "ATSS-PAS"
             else:
                 self.gene_classified = "ATSS-APA"
+        '''
 
         return {"range_start": range_start, "range_end": range_end}
