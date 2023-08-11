@@ -2,7 +2,7 @@ import pandas
 import numpy
 
 
-class_version = "V2.4(Editor) 2023-08-11"
+class_version = "V2.5(Editor) 2023-08-11"
 
 
 # Class
@@ -223,6 +223,7 @@ class Gene(object):
         self.exon_dict = exon_dict  # {start: [end], start: [end, end, ...], ...}  int
         # 初始化属性
         self.gene_classified = None
+        self.exonExpression = {}
 
     def __check_exon_exist(self, exon_start, exon_end):
         # change:
@@ -478,3 +479,47 @@ class Gene(object):
                     self.transcript_dict[transcriptId]["cellLineExpression"][cellLine] = cellLineExpression
 
             return None
+
+    def computeExonExpression(self, cellLineInfo, countsSample):
+        cellLineInfo = cellLineInfo
+        countsSample = countsSample
+
+        # 获取gene中的所有exon
+        exonList = self.get_exon_combination()[self.gene_id]
+        # 准备好数据格式
+        exonExpression = {}  # {"countsExpression": {<sample1>: {"<exonStart>-<exonEnd>": <value>, ...}
+                             #                       <sample2>: {"<exonStart>-<exonEnd>": <value>, ...}, ...}
+                             #  "relativeExpression": {...},
+                             #  "cellLineExpression": {...}}
+        exonExpression["countsExpression"] = {sample: {exon: 0 for exon in exonList} for sampleList in cellLineInfo.values() for sample in sampleList}
+        exonExpression["relativeExpression"] = {sample: {exon: 0 for exon in exonList} for sampleList in cellLineInfo.values() for sample in sampleList}
+        exonExpression["cellLineExpression"] = {cellLine: {exon: 0 for exon in exonList} for cellLine in cellLineInfo.keys()}
+
+        # 根据每个transcript中countsExpression记录的rep值, 记录exon的counts
+        # 先遍历每一个transcript
+        for transcriptId, transcriptDict in self.transcript_dict.items():
+            # 再遍历每一个样本
+            for sample in transcriptDict["countsExpression"].keys():
+                # 再遍历每一个exon
+                for exonStart, exonEndList in transcriptDict["exon_range"].items():
+                    for exonEnd in exonEndList:
+                        exonExpression["countsExpression"][sample]["{}-{}".format(exonStart, exonEnd)] += transcriptDict["countsExpression"][sample]
+
+        # 记录exon的相对表达量
+        # 先遍历每一个样本
+        for sample, exonInfoDict in exonExpression["countsExpression"].items():
+            # 再遍历每一个exon
+            for exon, counts in exonInfoDict.items():
+                exonExpression["relativeExpression"][sample][exon] = counts/countsSample[sample]
+
+        # 记录exon在cellLine中的相对表达量
+        # 遍历每一个cellLine
+        for cellLine, sampleList in cellLineInfo.items():
+            # 遍历每一个exon
+            for exon in exonList:
+                exonExpression["cellLineExpression"][cellLine][exon] = sum([exonExpression["relativeExpression"][sample][exon] for sample in sampleList]) / len(sampleList)
+
+        # 向gene中添加exonExpression
+        self.exonExpression = exonExpression
+
+        return exonExpression
