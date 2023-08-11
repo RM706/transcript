@@ -1,7 +1,8 @@
 import pandas
+import numpy
 
 
-class_version = "V2.2(Editor) 2023-08-07"
+class_version = "V2.4(Editor) 2023-08-11"
 
 
 # Class
@@ -12,8 +13,9 @@ class Total(object):
         self.sample_list = sample_list
         self.start_dict = {}  # 为了加快check_gene_id()的检索速度测试使用 {<start>: [<gene_id>, <gene_id>],
                               #                                          <start>: [<gene_id>, <gene_id>, <gene_id>, ...]}
-        self.cellLine = {}  # {<cellLine1>: [<sample1>, <sample2>, ...],
-                            #  <cellLine2>: [<sample1>, ...], ...}
+        self.cellLineInfo = {}  # {<cellLine1>: [<sample1>, <sample2>, ...],
+                                #  <cellLine2>: [<sample1>, ...], ...}
+        self.countsSample = {} # {<sample>: <value>, ...}
 
     def __check_gene_id(self, Gene):
         # change:
@@ -158,6 +160,28 @@ class Total(object):
                     self.gene_dict[geneId].transcript_dict[transcriptId]["relativeExpression"][sample] = rep / countsSample[sample] * 10**6
 
         return None
+
+    def computeCellLineExpression(self):
+        '''
+        change:
+            对每一个gene, 计算其每个transcript在每个细胞系中的平均相对表达值
+        '''
+        for geneId, geneObject in self.gene_dict.items():
+            geneObject.computeCellLineExpression(cellLineInfo=self.cellLineInfo)
+
+        return None
+
+    def countSample(self):
+        countsSample = {sample: 0 for sample in self.sample_list}  # {<sample>: <value>, ...}
+        for geneId, geneObject in self.gene_dict.items():
+            # 遍历每一个gene
+            for transcriptId, transcriptObject in geneObject.transcript_dict.items():
+                # 遍历每一个transcript
+                for sample, rep in transcriptObject["countsExpression"].items():
+                    # 遍历transcript在每个样本中的计数
+                    countsSample[sample] += rep
+
+        return countsSample
 
 
 # 定义一个类，以存储基因的相关信息
@@ -435,3 +459,22 @@ class Gene(object):
         '''
 
         return {"range_start": range_start, "range_end": range_end}
+
+    def computeCellLineExpression(self, cellLineInfo):
+            '''
+            input:
+                cellLine,\t dict,\t {<cellLine1>: [<sample1>, <sample2>, ...], ...}\n
+            change:
+                计算Gene中每一个transcript在每个细胞系中的相对表达值
+                细胞系中的相对表达值 = 在一个细胞系的所有样本中的相对表达值的加和 / 细胞系中样本的数量
+                    也就是说, 细胞系中的相对表达值 = 细胞系中所有样本的平均相对表达值
+            '''
+            cellLineInfo = cellLineInfo
+
+            for transcriptId, transcriptObject in self.transcript_dict.items():
+                # 遍历每一个transcript
+                for cellLine, sampleList in cellLineInfo.items():
+                    cellLineExpression = numpy.mean([transcriptObject["relativeExpression"].get(sample, 0) for sample in sampleList])
+                    self.transcript_dict[transcriptId]["cellLineExpression"][cellLine] = cellLineExpression
+
+            return None
