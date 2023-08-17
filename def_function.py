@@ -380,7 +380,7 @@ def save_df(total, file_path, tab_level=0):
     df = total.get_df(total.sample_list)
     df = df.sort_values(by="gene_id")
     df = df.sort_values(by="chr")
-    df.to_csv(file_path, sep='\t')
+    df.to_csv(file_path, sep='\t', index=None)
 
     return df
 
