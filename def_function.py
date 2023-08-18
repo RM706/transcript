@@ -6,7 +6,7 @@ import gzip
 from def_class import *
 
 
-__version__ = "V2.3(Editor) 2023-08-05"
+__version__ = "V2.4(Editor) 2023-08-18"
 
 
 # Function
@@ -21,7 +21,7 @@ def log(function):
         print("{}[Time]{}".format('\t'*(tab+1),
                                   time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))))
         for key, value in kwargs.items():
-            if type(value) in [int, str, bool, list]:
+            if type(value) in [int, float, str, bool, list]:
                 print("{}[Paraments]{}: {}".format('\t'*(tab+1),
                                                    key, value))
             else:
