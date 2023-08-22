@@ -1,8 +1,9 @@
 import pandas
 import numpy
+import def_function
 
 
-class_version = "V2.6(Editor) 2023-08-17"
+class_version = "V2.7(Editor) 2023-08-22"
 
 
 # Class
@@ -521,7 +522,7 @@ class Gene(object):
         for exon, expressionDict in exonExpression.items():
             # 再遍历每一个样本
             for sample, counts in expressionDict["countsExpression"].items():
-                exonExpression[exon]["relativeExpression"][sample] = counts/countsSample[sample]
+                exonExpression[exon]["relativeExpression"][sample] = counts/countsSample[sample] * (10**6)
 
         # 记录exon在cellLine中的相对表达量
         # 遍历每一个cellLine
@@ -539,3 +540,36 @@ class Gene(object):
         self.exonExpression = exonExpression
 
         return exonExpression
+
+    def getTranscriptExon(self):
+        """
+        change:
+            返回该gene中每个transcript的exon
+        output:
+            dict, {<transcriptId>: [[<exonStart>, <exonEnd>], [<exonStart>, <exonEnd>], ...],
+                <transcriptId>: ...}
+        """
+        dictExon = {}
+        for transcriptId, transcriptDict in self.transcript_dict.items():
+            listExon = []
+            for exonStart, exonEndList in transcriptDict["exon_range"].items():
+                for exonEnd in exonEndList:
+                    listExon.append([exonStart, exonEnd])
+            dictExon[transcriptId] = listExon
+
+        return dictExon
+
+    def getGeneExon(self):
+        """
+        change:
+            返回该gene中所有的exon(已合并重叠的exon)
+        output:
+            list, [[<exonStart>, <exonEnd>], [<exonStart>, <exonEnd>], ...]
+        """
+        listExon = []
+        dictExon = getTranscriptExon(self)
+        for transcriptId, exonList in dictExon.items():
+            listExon = listExon + exonList
+        listExon = def_function.dedupExonList(listExon)
+
+        return listExon
