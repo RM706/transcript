@@ -6,7 +6,7 @@ import gzip
 from def_class import *
 
 
-__version__ = "V2.4(Editor) 2023-08-18"
+__version__ = "V2.5(Editor) 2023-08-22"
 
 
 # Function
@@ -537,3 +537,38 @@ def load_sample_info(filename, tab_level=0):
     sample_info["disease"] = sample_info["disease"].map(lambda x: x.replace(' ', '_'))
 
     return sample_info
+
+
+def dedupExonList(exonList):
+    """
+    input:
+        exonList, list, [[<exonStart>, <exonEnd>], [<exonStart>, <exonEnd>], ...]
+    change:
+        在exonList中, 各exon的范围存在重叠
+        该函数遍历整个exonList, 合并存在重叠的exon
+    output:
+        dedupExonList, list, 去重叠后的exon的list
+    """
+    if True:
+        exonList = exonList
+
+    # 改变exonList中的exon, 使exonStart <= exonEnd
+    exonList = list(map(lambda x: [x[1], x[0]] if x[0]>x[1] else [x[0], x[1]], exonList))
+
+    # 按照exonStart的大小进行升序排序
+    exonList = sorted(exonList, key=lambda x: x[0])
+
+    dedupExonList = []
+    [exonStart, exonEnd] = exonList[0]
+    for [tempExonStart, tempExonEnd] in exonList:
+        if exonStart <= tempExonStart <= exonEnd:
+            # 当前exon与上一个exon存在重叠
+            exonEnd = max(exonEnd, tempExonEnd)
+        else:
+            # 当前exon与上一个exon不重叠
+            dedupExonList.append([exonStart, exonEnd])
+            exonStart = tempExonStart
+            exonEnd = tempExonEnd
+    dedupExonList.append([exonStart, exonEnd])
+
+    return dedupExonList
