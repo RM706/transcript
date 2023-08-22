@@ -572,3 +572,51 @@ def dedupExonList(exonList):
     dedupExonList.append([exonStart, exonEnd])
 
     return dedupExonList
+
+
+# 一级函数
+def getGeneIdOrNameFromParaments(GENEID, GENENAME, total, tab_level=0):
+    """
+    input:
+        GENEID, str
+        GENENAME, str
+        total, Total Object
+    change:
+        用于从参数中整理获取指定的gene
+    """
+    if True:
+        GENEID = GENEID
+        GENENAME = GENENAME
+        total = total
+
+    if GENEID is None:
+        # 无GENEID
+        if GENENAME is None:
+            # 无GENEID且无GENENAME
+            raise ValueError("[Error]There is no gene id or gene name.\nUse --geneId <geneId> or --geneName <geneName> to add it.")
+        else:
+            # 无GENEID有GENENAME
+            # 记录其GENEID
+            for geneId, geneObject in total.gene_dict.items():
+                if geneObject.gene_name == GENENAME:
+                    GENEID = geneId
+                    break
+                else:
+                    continue
+            raise ValueError("[Error]The gene name {} is not existed in the file {}".format(GENENAME, inputTotalFilename))
+    else:
+        # 有GENEID
+        if GENEID not in total.gene_dict.keys():
+                # 判断该geneId是否存在与total对象中
+                raise ValueError("[Error]The gene id {} is not existed in data".format(GENEID))
+        else:
+            # 该geneId存在于total.gene_dict中
+            if GENENAME is None:
+                # 有GENEID无GENENAME
+                GENENAME = total.gene_dict.get(GENEID)
+            else:
+                # 有GENEID且有GENENAME
+                GENENAME = total.gene_dict[GENEID]
+                print("[Warning]The GENEID and GENENAME are conflicted, set GENENAME to {}".format(GENENAME))
+    
+    return [GENEID, GENENAME]
