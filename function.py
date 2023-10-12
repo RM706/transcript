@@ -2,8 +2,9 @@ import os
 import re
 import pandas
 import time
+import gzip
 
-__functionVersion__ = "V1.0(Editor) 2023-10-08"
+__functionVersion__ = "V1.1(Editor) 2023-10-12"
 
 '''
 函数说明:
@@ -290,7 +291,12 @@ def loadAnnotation(total, sample, filename, type, geneIdSet, transcriptIdSet, ch
     if type not in ["gene", "transcript", "exon"]:
         raise ValueError("[Error]loadAnnotation() the parament type is {}, not is 'gene' or 'transcript' or 'exon'".format(type))
 
-    with open(filename, 'r') as file:
+    if filename[-3:] == ".gz":
+        file = gzip.open(filename, "rt")
+    else:
+        file = open(filename, 'r')
+
+    if True:
         if type == "gene":
             for line in file:
                 line = pickEncodeAnnotation(info=line, allowType=[type])
@@ -312,6 +318,7 @@ def loadAnnotation(total, sample, filename, type, geneIdSet, transcriptIdSet, ch
                         total.geneAdd(status=geneStatus, chr=chr, strand=strand, start=start, end=end, geneId=geneId, geneName=geneName, geneBiotype=geneBiotype)
                     else:
                         continue
+            file.close()
             return [total, None]
         elif type == "transcript":
             for line in file:
@@ -346,6 +353,7 @@ def loadAnnotation(total, sample, filename, type, geneIdSet, transcriptIdSet, ch
                                                      exonList=exonIndex[chr][transcriptId],
                                                      sample=sample,
                                                      counts=countsTranscript[transcriptId])
+            file.close()
             return [total, None]
         else:
             exonIndex = {i: {} for i in chrList}  # {<chr>: {<transcriptId>: [<exon1>, <exon2>, ...], ...}, ...}
@@ -377,7 +385,7 @@ def loadAnnotation(total, sample, filename, type, geneIdSet, transcriptIdSet, ch
                     temp = exonIndex[chr].get(transcriptId, [])
                     temp.append(exonId)
                     exonIndex[chr][transcriptId] = temp
-
+            file.close()
             return [total, exonIndex]
 
 
