@@ -22,6 +22,7 @@ __functionVersion__ = "V1.0(Editor) 2023-10-08"
         pickRefAnnotation()         一级函数    读取参考基因组注释文件数据
 '''
 
+
 # 修饰器
 def log(function):
     name = function.__name__
@@ -216,7 +217,10 @@ def loadQuantification(filename, cutoff):
     filename = filename
     cutoff = cutoff
 
-    df = pandas.read_csv(filename, sep='\t')
+    if filename[-3:] == ".gz":
+        df = pandas.read_csv(filename, sep='\t', compression="gzip")
+    else:
+        df = pandas.read_csv(filename, sep='\t')
     df = df.loc[df[df.columns[-1]]>=cutoff, ["annot_gene_id", "annot_transcript_id", df.columns[-1]]]
     df = df.rename(columns={df.columns[-1]: "rep", "annot_gene_id": "geneId", "annot_transcript_id": "transcriptId"})
 

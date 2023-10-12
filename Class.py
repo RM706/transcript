@@ -306,6 +306,9 @@ class Total(object):
             remainedExonId = exonId1
         self._exonExistedAdd(oldExonId=deletedExonId, newExonId=remainedExonId)
 
+        # 修改self.exonIndex
+        self.exonIndex[self.exonDict[deletedExonId].chr][self.exonDict[deletedExonId].start][self.exonDict[deletedExonId].end] = remainedExonId
+
         # self.exonDict中删除不可靠exon
         self.exonDict.pop(deletedExonId)
 
@@ -534,6 +537,9 @@ class Total(object):
 
         # 重建transcriptIndex
         self.geneDict[remainedGeneId].reIndex()
+
+        # 修改geneIndex
+        self.geneIndex[self.geneDict[deletedGeneId].chr][self.geneDict[deletedGeneId].start][self.geneDict[deletedGeneId].end] = remainedGeneId
 
         # 删除deletedGene
         self.geneDict.pop(deletedGeneId)
@@ -832,7 +838,6 @@ class Total(object):
                         self._exonMerge(exonId1=existedExonId, exonId2=exonId)
         self.exonIndex = newIndex
 
-
         # 重新建立transcriptIndex
         ## 先将transcript中可以进行映射的exon进行映射, 因为经过上一步后exonExisted可能会发生改变
         for geneId, geneObject in self.geneDict.items():
@@ -989,7 +994,7 @@ class Transcript(object):
 
         changeMarker = False
         # 对exon进行映射
-        newExonList = self.exonList
+        newExonList = self.exonList.copy()
         for i in range(0, len(newExonList)):
             exonId = newExonList[i]
             if exonId in exonExisted.keys():
@@ -998,9 +1003,10 @@ class Transcript(object):
                 changeMarker = True
 
         # 去除exon重复
+        newExonList = list(set(newExonList))
+        self.exonList = newExonList
+
         if changeMarker is True:
-            newExonList = list(set(newExonList))
-            self.exonList = newExonList
             return True
         else:
             return False
@@ -1196,11 +1202,11 @@ class Gene(object):
             temp = temp + counts
             self.transcriptDict[remainedTranscriptId].countsExpression[sample] = temp
 
+        # 修改transcriptIndex
+        self.transcriptIndex[self.transcriptDict[deletedTranscriptId].start][self.transcriptDict[deletedTranscriptId].end] = remainedTranscriptId
+
         # 删除deletedTranscript
         self.transcriptDict.pop(deletedTranscriptId)
-
-        # 重建transcriptIndex
-        #self.reIndex()
 
         return {deletedTranscriptId: remainedTranscriptId}
 
@@ -1466,6 +1472,8 @@ class Gene(object):
                     # 检查transcript的exonCombination是否已记录
                     tempTranscriptList = newIndex[start][end]
                     for id in tempTranscriptList:
+                        if id in self.transcriptExisted.keys():
+                            id = self.transcriptExisted[id]
                         tempExonCombination = set(self.transcriptDict[id].exonList)
                         if exonCombination == tempExonCombination:
                             # transcript存在重复
