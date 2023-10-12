@@ -1,4 +1,6 @@
-classVersion = "V1.0(Editor) 2023-10-10"
+import numpy
+
+classVersion = "V1.1(Editor) 2023-10-12"
 
 # add思路
 '''
@@ -172,20 +174,22 @@ class Total(object):
         exonExisted, dict, 记录重复的exon id之间的映射关系
         celllineInfo, dict, {<cellline1>: [<sample1>, <sample2>, ...], ...}
     方法
-        _exonCheck()        检查exon是否已记录
-        _exonExistedAdd()   向exonExisted中添加映射
-        _exonMerge()        合并两个exon
-        _transcriptMerge()  合并两个transcript, 可跨gene合并
-        _geneCheck()        检查gene是否已记录
-        _geneExistedAdd()   向geneExisted中添加映射
-        _geneMerge()        合并两个gene
-        exonAdd()           添加exon
-        exonUseGet()        获取使用指定exon的所有gene及transcript
-        transcriptIdGet()   输入一个transcriptId或transcriptName, 返回一个已考虑映射关系的transcriptId或None
-        geneAdd()           添加gene
-        geneIdGet()         输入一个geneId或geneName, 返回一个已考虑映射关系的geneId或None
-        refresh()           自检所有gene及transcript的exonList中是否存在可映射的exon, 若存在, 则进行映射
-        reIndex()           重新建立self.geneIndex, self.exonIndex及每个geneObject中的transcriptIndex
+        _exonCheck()                检查exon是否已记录
+        _exonExistedAdd()           向exonExisted中添加映射
+        _exonMerge()                合并两个exon
+        _transcriptMerge()          合并两个transcript, 可跨gene合并
+        _geneCheck()                检查gene是否已记录
+        _geneExistedAdd()           向geneExisted中添加映射
+        _geneMerge()                合并两个gene
+        exonAdd()                   添加exon
+        exonUseGet()                获取使用指定exon的所有gene及transcript
+        transcriptIdGet()           输入一个transcriptId或transcriptName, 返回一个已考虑映射关系的transcriptId或None
+        geneAdd()                   添加gene
+        geneIdGet()                 输入一个geneId或geneName, 返回一个已考虑映射关系的geneId或None
+        refresh()                   自检所有gene及transcript的exonList中是否存在可映射的exon, 若存在, 则进行映射
+        reIndex()                   重新建立self.geneIndex, self.exonIndex及每个geneObject中的transcriptIndex
+        computeRelativeExpression() 计算每个transcript在每个样本中的相对表达量
+        computeCellLineExpression() 计算每个transcript在每个细胞系中的相对表达量
     '''
     def __init__(self, geneDict=None, geneIndex=None, geneExisted=None, exonDict=None, exonIndex=None, exonExisted=None, celllineInfo=None, chrList=None):
         if chrList is None:
@@ -885,6 +889,54 @@ class Total(object):
 
         return None
 
+    def computeRelativeExpression(self):
+        '''
+        change:
+            计算每个transcript在每个样本中的相对表达量
+                0. 遍历self.celllineInfo中的values, 获取所有样本名
+                1. 遍历所有transcript, 统计该样本中所有样本的总的counts数
+                2. 对每一个样本, 计算transcript在该样本中的相对表达量
+                    相对表达量 = 在该样本中该transcript的counts * 10^6 / 该样本中所有transcript的counts数的总和
+        '''
+
+        # 获取所有样本名
+        sampleDict = {}  # {<sample>: <total counts>, ...}
+        for sampleList in self.celllineInfo.values():
+            for sample in sampleList:
+                sampleDict[sample] = None
+
+        # 统计所有样本的总的counts数
+        for sample in sampleDict.keys():
+            totalCounts = 0
+            for geneId, geneObject in self.geneDict.items():
+                for transcriptId, transcriptObject in geneObject.transcriptDict.items():
+                    totalCounts = totalCounts + transcriptObject.countsExpression.get(sample, 0)
+            sampleDict[sample] = totalCounts
+
+        # 计算每个transcript的相对表达量
+        for sample in sampleDict.keys():
+            for geneId, geneObject in self.geneDict.items():
+                for transcriptId, transcriptObject in geneObject.transcriptDict.items():
+                    relativeExpression = transcriptObject.countsExpression.get(sample, 0) * 10**6 / sampleDict[sample]
+                    transcriptObject.relativeExpression[sample] = relativeExpression
+
+        return None
+
+    def computeCellLineExpression(self):
+        '''
+        change:
+            计算每个transcript在每个细胞系中的相对表达量
+                transcript在细胞系中的相对表达量 = 在一个细胞系的所有样本中的相对表达量的加和 / 细胞系中样本的数量
+                换句话说, transcript在细胞系中的相对表达量 = 细胞系中所有样本的平均相对表达量
+        '''
+
+        for geneObject in self.geneDict.values():
+            for transcriptObject in geneObject.transcriptDict.values():
+                for cellLine, sampleList in self.celllineInfo.items():
+                    expression = numpy.mean([transcriptObject.relativeExpression[sample] for sample in sampleList])
+                    transcriptObject.cellLineExpression[cellLine] = expression
+
+        return None
 
 # 定义Exon
 class Exon(object):
@@ -1016,18 +1068,21 @@ class Transcript(object):
 class Gene(object):
     '''
     属性
-        status, str,
-        chr, str, gene所在的染色体号
-        strand, str, gene的链的方向
-        start, int, gene的start的位置(与strand无关, start<end)
-        end, int, gene的end的位置(与strand无关, start<end)
-        geneId, str, 带有版本号
-        geneName, str
-        geneBiotype, str
-        exonList, list, 存储该gene所包含的所有exonId
-        transcriptDict, dict, 存储映射的Transcript对象, key为id
-        transcriptIndex, dict, 建立基因中transcript的索引 {<start>: {<end>: <transcriptId>}}
-        transcriptExisted, dict, 存储transcriptId的映射关系
+        初始化属性
+            status, str,
+            chr, str, gene所在的染色体号
+            strand, str, gene的链的方向
+            start, int, gene的start的位置(与strand无关, start<end)
+            end, int, gene的end的位置(与strand无关, start<end)
+            geneId, str, 带有版本号
+            geneName, str
+            geneBiotype, str
+            exonList, list, 存储该gene所包含的所有exonId
+            transcriptDict, dict, 存储映射的Transcript对象, key为id
+            transcriptIndex, dict, 建立基因中transcript的索引 {<start>: {<end>: <transcriptId>}}
+            transcriptExisted, dict, 存储transcriptId的映射关系
+        额外属性
+            geneClass, str, TSS-PAS or ATSS-PAS or TSS-APA or ATSS-APA
     方法
         _exonCheck()            检查exon是否已被记录
         _transcriptCheck()      检查transcript是否已被记录
@@ -1053,6 +1108,8 @@ class Gene(object):
         self.transcriptDict = (transcriptDict, {})[transcriptDict is None]
         self.transcriptIndex = (transcriptIndex, {})[transcriptIndex is None]  # {<start>: {<end>: [], ...}, ...}
         self.transcriptExisted = (transcriptExisted, {})[transcriptExisted is None]  # {<old transcript id>: <existed transcript id>}
+        # 额外属性
+        self.geneClass = None  # TSS-PAS or ATSS-PAS or TSS-APA or ATSS-APA
 
     def _exonCheck(self, exonId):
         '''
