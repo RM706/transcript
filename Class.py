@@ -188,8 +188,8 @@ class Total(object):
         geneIdGet()                 输入一个geneId或geneName, 返回一个已考虑映射关系的geneId或None
         refresh()                   自检所有gene及transcript的exonList中是否存在可映射的exon, 若存在, 则进行映射
         reIndex()                   重新建立self.geneIndex, self.exonIndex及每个geneObject中的transcriptIndex
-        computeRelativeExpression() 计算每个transcript在每个样本中的相对表达量
-        computeCellLineExpression() 计算每个transcript在每个细胞系中的相对表达量
+        computeRelativeExpression() 计算每个transcript在每个样本中的相对表达量, 并统计gene及exon在每个样本中的相对表达量
+        computeCellLineExpression() 计算每个gene, transcript, exon在每个细胞系中的相对表达量
     '''
     def __init__(self, geneDict=None, geneIndex=None, geneExisted=None, exonDict=None, exonIndex=None, exonExisted=None, celllineInfo=None, chrList=None):
         if chrList is None:
@@ -266,6 +266,7 @@ class Total(object):
             注意: exon在merge之后可能会导致transcript产生重合, 还应在执行该函数后检查transcript是否存在重复
             合并两个exon
                 不可靠exon --> 可靠exon
+                倾向于保留exonId1
             0. 分别检查exon1及exon2是否已记录
             1. 确当映射方向并映射
                 若两个exon的status为"KNOWN", 则在self.exonExisted中将exon2映射到exon1
@@ -609,9 +610,29 @@ class Total(object):
         elif checkMarker[0] == 3:
             # exonId未记录 且start已记录 且end已记录
             existedExonId = checkMarker[1]
-            self._exonExistedAdd(oldExonId=exonId, newExonId=existedExonId)
-            if existedExonId not in self.geneDict[geneId].exonList:
-                self.geneDict[geneId].exonList.append(existedExonId)
+            # 判断exon的映射方向
+            existedExonStatus = self.exonDict[existedExonId].status
+            if status == existedExonStatus == "KNOWN":
+                # 两exon都为KNOWN, 新exon-->旧exon
+                self._exonExistedAdd(oldExonId=exonId, newExonId=existedExonId)
+                if existedExonId not in self.geneDict[geneId].exonList:
+                    self.geneDict[geneId].exonList.append(existedExonId)
+            elif status == "KNOWN":
+                # 新的exon为KNOWN, 旧exon-->新exon
+                self.exonDict[exonId] = Exon(status=status, exonId=exonId, chr=chr, strand=strand, start=start, end=end)
+                self._exonMerge(exonId1=exonId, exonId2=existedExonId)
+                if exonId not in self.geneDict[geneId].exonList:
+                    self.geneDict[geneId].exonList.append(exonId)
+            elif existedExonStatus == "KNOWN":
+                # 旧的exon为KNOWN, 新exon-->旧exon
+                self._exonExistedAdd(oldExonId=exonId, newExonId=existedExonId)
+                if existedExonId not in self.geneDict[geneId].exonList:
+                    self.geneDict[geneId].exonList.append(existedExonId)
+            else:
+                # 两exon都不为KNOWN, 新exon-->旧exon
+                self._exonExistedAdd(oldExonId=exonId, newExonId=existedExonId)
+                if existedExonId not in self.geneDict[geneId].exonList:
+                    self.geneDict[geneId].exonList.append(existedExonId)
         else:
             raise ValueError("exonAdd() -- the chechMarker is {}, only 0,1,2,3".format(checkMarker))
 
@@ -892,11 +913,18 @@ class Total(object):
     def computeRelativeExpression(self):
         '''
         change:
-            计算每个transcript在每个样本中的相对表达量
+            计算每个transcript在每个样本中的相对表达量, 并统计gene及exon在每个样本中的相对表达量
                 0. 遍历self.celllineInfo中的values, 获取所有样本名
                 1. 遍历所有transcript, 统计该样本中所有样本的总的counts数
-                2. 对每一个样本, 计算transcript在该样本中的相对表达量
-                    相对表达量 = 在该样本中该transcript的counts * 10^6 / 该样本中所有transcript的counts数的总和
+                2. 处理transcript
+                    对每一个样本, 计算transcript在该样本中的相对表达量
+                        相对表达量 = 在该样本中该transcript的counts * 10^6 / 该样本中所有transcript的counts数的总和
+                3. 处理gene
+                    根据gene所包含的transcript, 统计该gene的counts数
+                    计算gene在每个样本中的相对表达量
+                4. 处理exon
+                    根据transcript所包含的exon, 统计exon的counts数
+                    计算exon在每个样本中的相对表达量
         '''
 
         # 获取所有样本名
@@ -913,6 +941,7 @@ class Total(object):
                     totalCounts = totalCounts + transcriptObject.countsExpression.get(sample, 0)
             sampleDict[sample] = totalCounts
 
+        # 处理transcript
         # 计算每个transcript的相对表达量
         for sample in sampleDict.keys():
             for geneId, geneObject in self.geneDict.items():
@@ -920,21 +949,65 @@ class Total(object):
                     relativeExpression = transcriptObject.countsExpression.get(sample, 0) * 10**6 / sampleDict[sample]
                     transcriptObject.relativeExpression[sample] = relativeExpression
 
+        # 处理gene
+        # 统计每个gene的counts
+        for geneObject in self.geneDict.values():
+            for sample in sampleDict.keys():
+                counts = 0
+                for transcriptObject in geneObject.transcriptDict.values():
+                    counts = counts + transcriptObject.countsExpression.get(sample, 0)
+                geneObject.countsExpression[sample] = counts
+        # 计算每个gene的relativeExpression
+        for geneObject in self.geneDict.values():
+            for sample, counts in geneObject.countsExpression.items():
+                relativeExpression = counts * 10**6 / sampleDict[sample]
+                geneObject.relativeExpression[sample] = relativeExpression
+
+        # 统计每个exon的counts
+        for geneObject in self.geneDict.values():
+            for transcriptObject in geneObject.transcriptDict.values():
+                for sample, counts in transcriptObject.countsExpression.items():
+                    exonList = transcriptObject.exonList
+                    for exon in exonList:
+                        exonObject = self.exonDict[exon]
+                        temp = exonObject.countsExpression.get(sample, 0)
+                        temp = temp + counts
+                        exonObject.countsExpression[sample] = temp
+        # 计算每个exon的relativeExpression
+        for exonObject in self.exonDict.values():
+            for sample, counts in exonObject.countsExpression.items():
+                relativeExpression = counts * 10**6 / sampleDict[sample]
+                exonObject.relativeExpression[sample] = relativeExpression
+
         return None
 
     def computeCellLineExpression(self):
         '''
         change:
-            计算每个transcript在每个细胞系中的相对表达量
-                transcript在细胞系中的相对表达量 = 在一个细胞系的所有样本中的相对表达量的加和 / 细胞系中样本的数量
-                换句话说, transcript在细胞系中的相对表达量 = 细胞系中所有样本的平均相对表达量
+            计算每个gene, transcript, exon在每个细胞系中的相对表达量
+                0. 处理gene
+                1. 处理transcript
+                    transcript在细胞系中的相对表达量 = 在一个细胞系的所有样本中的相对表达量的加和 / 细胞系中样本的数量
+                    换句话说, transcript在细胞系中的相对表达量 = 细胞系中所有样本的平均相对表达量
+                2. 处理exon
         '''
 
+        # 处理gene
+        for geneObject in self.geneDict.values():
+            for cellLine, sampleList in self.celllineInfo.items():
+                geneObject.cellLineExpression[cellLine] = numpy.mean([geneObject.relativeExpression.get(sample, 0) for sample in sampleList])
+
+        # 处理transcript
         for geneObject in self.geneDict.values():
             for transcriptObject in geneObject.transcriptDict.values():
                 for cellLine, sampleList in self.celllineInfo.items():
-                    expression = numpy.mean([transcriptObject.relativeExpression[sample] for sample in sampleList])
+                    expression = numpy.mean([transcriptObject.relativeExpression.get(sample, 0) for sample in sampleList])
                     transcriptObject.cellLineExpression[cellLine] = expression
+
+        # 处理exon
+        for exonObject in self.exonDict.values():
+            for cellLine, sampleList in self.celllineInfo.items():
+                exonObject.cellLineExpression[cellLine] = numpy.mean([exonObject.relativeExpression.get(sample, 0) for sample in sampleList])
 
         return None
 
@@ -942,21 +1015,31 @@ class Total(object):
 class Exon(object):
     '''
     属性
-        status, str
-        exonId, str
-        chr, str
-        start, int, (与strand无关, start<end)
-        end, int, (与strand无关, start<end)
+        基础属性
+            status, str
+            exonId, str
+            chr, str
+            start, int, (与strand无关, start<end)
+            end, int, (与strand无关, start<end)
+        额外属性
+            countsExpression, dict, {<sample_name1>: <counts>, <sample_name2>: <counts>, ...}
+            relativeExpression, dict, {<sample_name1>: <expression>, <sample_name2>: <expression>, ...}
+            cellLineExpression, dict, {<cellLine1>: <expression>, <cellLine2>: <expression>, ...}
     方法
         dictGet(), 获取一个dict, key:value分别为exonId,chr,start,end,status
     '''
     def __init__(self, status, exonId, chr, strand, start, end):
+        # 初始化属性
         self.status = status
         self.exonId = exonId
         self.chr = chr
         self.strand = strand
         self.start = start
         self.end = end
+        # 额外属性
+        self.countsExpression = {}
+        self.relativeExpression = {}
+        self.cellLineExpression = {}
 
     def dictGet(self):
         '''
@@ -986,16 +1069,17 @@ class Exon(object):
 class Transcript(object):
     '''
     属性
-        status, str
-        transcriptId, str
-        transcriptName, str
-        transcriptBiotype, str
-        start, int, (与strand无关, start<end)
-        end, int, (与strand无关, start<end)
-        exonList, list, 该转录本的exon组成
-        countsExpression, dict, {<sample_name1>: <expression>, <sample_name2>: <expression>, ...}
-        relativeExpression, dict, {<sample_name1>: <expression>, <sample_name2>: <expression>, ...}
-        cellLineExpression, dict, {<cellLine1>: <expression>, <cellLine2>: <expression>, ...}
+        基础属性
+            status, str
+            transcriptId, str
+            transcriptName, str
+            transcriptBiotype, str
+            start, int, (与strand无关, start<end)
+            end, int, (与strand无关, start<end)
+            exonList, list, 该转录本的exon组成
+            countsExpression, dict, {<sample_name1>: <counts>, <sample_name2>: <counts>, ...}
+            relativeExpression, dict, {<sample_name1>: <expression>, <sample_name2>: <expression>, ...}
+            cellLineExpression, dict, {<cellLine1>: <expression>, <cellLine2>: <expression>, ...}
     方法
         dictGet()       获取一个dict, 包含了该transcript的属性
         refresh()       重新整理transcript的exonList
@@ -1026,7 +1110,7 @@ class Transcript(object):
                 "start": self.start,
                 "end": self.end,
                 "exonList": ", ".join(set(self.exonList))}
-        
+
         return temp
 
     def refresh(self, exonExisted):
@@ -1068,7 +1152,7 @@ class Transcript(object):
 class Gene(object):
     '''
     属性
-        初始化属性
+        基础属性
             status, str,
             chr, str, gene所在的染色体号
             strand, str, gene的链的方向
@@ -1083,6 +1167,9 @@ class Gene(object):
             transcriptExisted, dict, 存储transcriptId的映射关系
         额外属性
             geneClass, str, TSS-PAS or ATSS-PAS or TSS-APA or ATSS-APA
+            countsExpression, dict, {<sample_name1>: <counts>, <sample_name2>: <counts>, ...}
+            relativeExpression, dict, {<sample_name1>: <expression>, <sample_name2>: <expression>, ...}
+            cellLineExpression, dict, {<cellLine1>: <expression>, <cellLine2>: <expression>, ...}
     方法
         _exonCheck()            检查exon是否已被记录
         _transcriptCheck()      检查transcript是否已被记录
@@ -1096,6 +1183,7 @@ class Gene(object):
         reIndex()               重新建立transcriptIndex
     '''
     def __init__(self, status, chr, strand, start, end, geneId, geneName, geneBiotype, exonList=None, transcriptDict=None, transcriptIndex=None, transcriptExisted=None):
+        # 基础属性
         self.status = status
         self.chr = chr
         self.strand = strand
@@ -1110,6 +1198,9 @@ class Gene(object):
         self.transcriptExisted = (transcriptExisted, {})[transcriptExisted is None]  # {<old transcript id>: <existed transcript id>}
         # 额外属性
         self.geneClass = None  # TSS-PAS or ATSS-PAS or TSS-APA or ATSS-APA
+        self.countsExpression = {}
+        self.relativeExpression = {}
+        self.cellLineExpression = {}
 
     def _exonCheck(self, exonId):
         '''
