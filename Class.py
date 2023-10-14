@@ -1,6 +1,6 @@
 import numpy
 
-classVersion = "V1.2(Editor) 2023-10-13"
+classVersion = "V1.3(Editor) 2023-10-14"
 
 '''
 函数说明:
@@ -204,9 +204,12 @@ class Total(object):
         _addTSSTES()                自检并更新gene, transcript, exon的TSS及TES信息
         exonAdd()                   添加exon
         exonUseGet()                获取使用指定exon的所有gene及transcript
+        exonIndexBuild()            建立符合过滤条件的exon的index
         transcriptIdGet()           输入一个transcriptId或transcriptName, 返回一个已考虑映射关系的transcriptId或None
+        transcriptIndexBuild()      建立符合过滤条件的transcript的index
         geneAdd()                   添加gene
         geneIdGet()                 输入一个geneId或geneName, 返回一个已考虑映射关系的geneId或None
+        geneIndexBuild()            建立符合过滤条件的gene的index
         refresh()                   自检所有gene及transcript的exonList中是否存在可映射的exon, 若存在, 则进行映射
         reIndex()                   重新建立self.geneIndex, self.exonIndex及每个geneObject中的transcriptIndex
         computeRelativeExpression() 计算每个transcript在每个样本中的相对表达量, 并统计gene及exon在每个样本中的相对表达量
@@ -683,6 +686,39 @@ class Total(object):
 
         return result
 
+    def exonIndexBuild(self, siteType, statusSet=None):
+        '''
+        input:
+            siteType, str, "start" or "end" or "TSS" or "TES"
+            statusSet, set, 只有status在这个set中的exon才会被纳入index
+        return:
+            index, dict, {<chr>: {<siteType>: {<siteType2>: <exonId>}, ...}, ...}
+        '''
+        siteType = siteType
+        statusSet = (statusSet, ("KNOWN", "NOVEL", "CORRECTED-start", "CORRECTED-end", "CORRECTED-start-end", "CORRECTED-end-start"))[statusSet is None]
+
+        mapped = {"start": "end", "end": "start", "TSS": "TES", "TES": "TSS"}
+        index = {}
+        for exonId, exonObject in self.exonDict.items():
+            chr = exonObject.chr
+            status = exonObject.status
+            # 过滤掉不符合条件的gene
+            if status not in statusSet:
+                continue
+            data = {"start": exonObject.start, "end": exonObject.end, "TSS": exonObject.TSS, "TES": exonObject.TES}
+            if chr not in index.keys():
+                index[chr] = {data[siteType]: {data[mapped[siteType]]: exonId}}
+            else:
+                if data[siteType] not in index[chr].keys():
+                    index[chr][data[siteType]] = {data[mapped[siteType]]: exonId}
+                else:
+                    if data[mapped[siteType]] not in index[chr][data[siteType]].keys():
+                        index[chr][data[siteType]][data[mapped[siteType]]] = exonId
+                    else:
+                        pass
+
+        return index
+
     def transcriptIdGet(self, transcriptId=None, transcriptName=None):
         '''
         change:
@@ -714,6 +750,41 @@ class Total(object):
                     return {"geneId": geneId, "transcriptId": result}
             # transcriptName未找到
             return None
+
+    def transcriptIndexBuild(self, siteType, statusSet=None):
+        '''
+        input:
+            siteType, str, "start" or "end" or "TSS" or "TES"
+            statusSet, set, 只有status在这个set中的transcript才会被纳入index
+        return:
+            index, dict, {<chr>: {<siteType>: {siteType2: geneId}, ...}, ...}
+        '''
+        siteType = siteType
+        statusSet = (statusSet, ("KNOWN", "NOVEL", "CORRECTED-start", "CORRECTED-end", "CORRECTED-start-end", "CORRECTED-end-start"))[statusSet is None]
+
+        mapped = {"start": "end", "end": "start", "TSS": "TES", "TES": "TSS"}
+        index = {}
+
+        for geneId, geneObject in self.geneDict.items():
+            chr = geneObject.chr
+            for transcriptId, transcriptObject in geneObject.transcriptDict.items():
+                status = transcriptObject.status
+                # 过滤掉不符合条件的gene
+                if status not in statusSet:
+                    continue
+                data = {"start": transcriptObject.start, "end": transcriptObject.end, "TSS": transcriptObject.TSS, "TES": transcriptObject.TES}
+                if chr not in index.keys():
+                    index[chr] = {data[siteType]: {data[mapped[siteType]]: [transcriptId]}}
+                else:
+                    if data[siteType] not in index[chr].keys():
+                        index[chr][data[siteType]] = {data[mapped[siteType]]: [transcriptId]}
+                    else:
+                        if data[mapped[siteType]] not in index[chr][data[siteType]].keys():
+                            index[chr][data[siteType]][data[mapped[siteType]]] = [transcriptId]
+                        else:
+                            index[chr][data[siteType]][data[mapped[siteType]]].append(transcriptId)
+
+        return index
 
     def geneAdd(self, status, chr, strand, start, end, geneId, geneVersion, geneName, geneBiotype):
         '''
@@ -830,6 +901,39 @@ class Total(object):
                     return geneId
             # 未能根据geneName寻找到geneId
             return None
+
+    def geneIndexBuild(self, siteType, statusSet=None):
+        '''
+        input:
+            siteType, str, "start" or "end" or "TSS" or "TES"
+            statusSet, set, 只有status在这个set中的gene才会被纳入index
+        return:
+            index, dict, {<chr>: {<siteType>: {siteType2: geneId}, ...}, ...}
+        '''
+        siteType = siteType
+        statusSet = (statusSet, ("KNOWN", "NOVEL", "CORRECTED-start", "CORRECTED-end", "CORRECTED-start-end", "CORRECTED-end-start"))[statusSet is None]
+
+        mapped = {"start": "end", "end": "start", "TSS": "TES", "TES": "TSS"}
+        index = {}
+        for geneId, geneObject in self.geneDict.items():
+            chr = geneObject.chr
+            status = geneObject.status
+            # 过滤掉不符合条件的gene
+            if status not in statusSet:
+                continue
+            data = {"start": geneObject.start, "end": geneObject.end, "TSS": geneObject.TSS, "TES": geneObject.TES}
+            if chr not in index.keys():
+                index[chr] = {data[siteType]: {data[mapped[siteType]]: geneId}}
+            else:
+                if data[siteType] not in index[chr].keys():
+                    index[chr][data[siteType]] = {data[mapped[siteType]]: geneId}
+                else:
+                    if data[mapped[siteType]] not in index[chr][data[siteType]].keys():
+                        index[chr][data[siteType]][data[mapped[siteType]]] = geneId
+                    else:
+                        pass
+
+        return index
 
     def refresh(self):
         '''
@@ -1271,6 +1375,7 @@ class Gene(object):
         exonUseGet()            查询该gene中使用了指定的exon的transcript
         transcriptAdd()         向transcriptDict中添加Transcript对象
         transcriptIdGet()       输入一个transcriptId或transcriptName, 返回一个考虑映射关系后的transcriptId
+        transcriptIndexBuild()  建立符合过滤条件的transcript的index
         refresh()               更新gene的exonList, 并更新transcriptDict中每个transcript的exonList
         reIndex()               重新建立transcriptIndex
     '''
@@ -1645,6 +1750,35 @@ class Gene(object):
                     return transcriptId
             # 未能根据transcriptName寻找到transcriptId
             return None
+
+    def transcriptIndexBuild(self, siteType, statusSet=None):
+        '''
+        input:
+            siteType, str, "start" or "end" or "TSS" or "TES"
+            statusSet, set, 只有status在这个set中的transcript才会被纳入index
+        return:
+            index, dict, {<siteType>: {siteType2: geneId}, ...}
+        '''
+        siteType = siteType
+        statusSet = (statusSet, ("KNOWN", "NOVEL", "CORRECTED-start", "CORRECTED-end", "CORRECTED-start-end", "CORRECTED-end-start"))[statusSet is None]
+
+        mapped = {"start": "end", "end": "start", "TSS": "TES", "TES": "TSS"}
+        index = {}
+        for transcriptId, transcriptObject in self.transcriptDict.items():
+            status = transcriptObject.status
+            # 过滤掉不符合条件的gene
+            if status not in statusSet:
+                continue
+            data = {"start": transcriptObject.start, "end": transcriptObject.end, "TSS": transcriptObject.TSS, "TES": transcriptObject.TES}
+            if data[siteType] not in index.keys():
+                index[data[siteType]] = {data[mapped[siteType]]: [transcriptId]}
+            else:
+                if data[mapped[siteType]] not in index[data[siteType]].keys():
+                    index[data[siteType]][data[mapped[siteType]]] = [transcriptId]
+                else:
+                    index[data[siteType]][data[mapped[siteType]]].append(transcriptId)
+
+        return index
 
     def refresh(self, exonExisted):
         '''
