@@ -1,6 +1,12 @@
 import numpy
 
-classVersion = "V1.1(Editor) 2023-10-12"
+classVersion = "V1.2(Editor) 2023-10-13"
+
+'''
+函数说明:
+    杂项
+        strSplit()          一级函数    将含有version的id分割为[<id>, <version>]
+'''
 
 # add思路
 '''
@@ -160,6 +166,20 @@ classVersion = "V1.1(Editor) 2023-10-12"
                                 在total.geneDict[<geneId>].transcriptDict[transcriptId].countsExpression中添加{<sample>: <counts>}
                                 在total.geneDict[<geneId>].transcriptIndex中添加transcript位置信息
 '''
+
+
+# 一级函数
+def strSplit(str):
+    '''
+    change:
+        将str按照<split>进行分割, 形成一个list
+            如果无法分割, 就新建一个list=[<str>, -1]
+    '''
+    if '.' in str:
+        str = str.split('.')
+    else:
+        str = [str, -1]
+    return str
 
 
 # 定义Total
@@ -551,13 +571,14 @@ class Total(object):
 
         return {deletedGeneId: remainedGeneId}
 
-    def exonAdd(self, geneId, exonId, status, chr, strand, start, end):
+    def exonAdd(self, geneId, exonId, exonVersion, status, chr, strand, start, end):
         '''
         change:
             添加exon信息
         '''
         geneId = geneId
         exonId = exonId
+        exonVersion = exonVersion
         status = status
         chr = chr
         strand = strand
@@ -600,12 +621,12 @@ class Total(object):
         elif checkMarker[0] == 1:
             # exonId未记录 且start未记录
             self.geneDict[geneId].exonList.append(exonId)
-            self.exonDict[exonId] = Exon(status=status, exonId=exonId, chr=chr, strand=strand, start=start, end=end)
+            self.exonDict[exonId] = Exon(status=status, exonId=exonId, exonVersion=exonVersion, chr=chr, strand=strand, start=start, end=end)
             self.exonIndex[chr][start] = {end: exonId}
         elif checkMarker[0] == 2:
             # exonId未记录 且start已记录 且end未记录
             self.geneDict[geneId].exonList.append(exonId)
-            self.exonDict[exonId] = Exon(status=status, exonId=exonId, chr=chr, strand=strand, start=start, end=end)
+            self.exonDict[exonId] = Exon(status=status, exonId=exonId, exonVersion=exonVersion, chr=chr, strand=strand, start=start, end=end)
             self.exonIndex[chr][start][end] = exonId
         elif checkMarker[0] == 3:
             # exonId未记录 且start已记录 且end已记录
@@ -619,7 +640,7 @@ class Total(object):
                     self.geneDict[geneId].exonList.append(existedExonId)
             elif status == "KNOWN":
                 # 新的exon为KNOWN, 旧exon-->新exon
-                self.exonDict[exonId] = Exon(status=status, exonId=exonId, chr=chr, strand=strand, start=start, end=end)
+                self.exonDict[exonId] = Exon(status=status, exonId=exonId, exonVersion=exonVersion, chr=chr, strand=strand, start=start, end=end)
                 self._exonMerge(exonId1=exonId, exonId2=existedExonId)
                 if exonId not in self.geneDict[geneId].exonList:
                     self.geneDict[geneId].exonList.append(exonId)
@@ -684,7 +705,7 @@ class Total(object):
             # transcriptName未找到
             return None
 
-    def geneAdd(self, status, chr, strand, start, end, geneId, geneName, geneBiotype):
+    def geneAdd(self, status, chr, strand, start, end, geneId, geneVersion, geneName, geneBiotype):
         '''
         input:
             status, str
@@ -693,6 +714,7 @@ class Total(object):
             start, int
             end, int
             geneId, str
+            geneVersion, int
             geneName, str
             geneBiotype, str
         change:
@@ -704,6 +726,7 @@ class Total(object):
         start = start
         end = end
         geneId = geneId
+        geneVersion = geneVersion
         geneName = geneName
         geneBiotype = geneBiotype
 
@@ -732,6 +755,7 @@ class Total(object):
                                          start=start,
                                          end=end,
                                          geneId=geneId,
+                                         geneVersion=geneVersion,
                                          geneName=geneName,
                                          geneBiotype=geneBiotype)
             self.geneIndex[chr][strand][start] = {end: geneId}
@@ -744,6 +768,7 @@ class Total(object):
                                          start=start,
                                          end=end,
                                          geneId=geneId,
+                                         geneVersion=geneVersion,
                                          geneName=geneName,
                                          geneBiotype=geneBiotype)
             self.geneIndex[chr][strand][start][end] = geneId
@@ -1018,6 +1043,7 @@ class Exon(object):
         基础属性
             status, str
             exonId, str
+            exonVersion, int
             chr, str
             start, int, (与strand无关, start<end)
             end, int, (与strand无关, start<end)
@@ -1028,10 +1054,11 @@ class Exon(object):
     方法
         dictGet(), 获取一个dict, key:value分别为exonId,chr,start,end,status
     '''
-    def __init__(self, status, exonId, chr, strand, start, end):
+    def __init__(self, status, exonId, chr, strand, start, end, exonVersion=-1):
         # 初始化属性
         self.status = status
         self.exonId = exonId
+        self.exonVersion = int(exonVersion)
         self.chr = chr
         self.strand = strand
         self.start = start
@@ -1072,6 +1099,7 @@ class Transcript(object):
         基础属性
             status, str
             transcriptId, str
+            transcriptVersion, int
             transcriptName, str
             transcriptBiotype, str
             start, int, (与strand无关, start<end)
@@ -1084,9 +1112,10 @@ class Transcript(object):
         dictGet()       获取一个dict, 包含了该transcript的属性
         refresh()       重新整理transcript的exonList
     '''
-    def __init__(self,status, transcriptId, transcriptName, transcriptBiotype, start, end, exonList=None, countsExpression=None, relativeExpression=None, cellLineExpression=None):
+    def __init__(self,status, transcriptId, transcriptName, transcriptBiotype, start, end, transcriptVersion=-1, exonList=None, countsExpression=None, relativeExpression=None, cellLineExpression=None):
         self.status = status
         self.transcriptId = transcriptId
+        self.transcriptVersion = int(transcriptVersion)
         self.transcriptName = transcriptName
         self.transcriptBiotype = transcriptBiotype
         self.start = start
@@ -1158,7 +1187,8 @@ class Gene(object):
             strand, str, gene的链的方向
             start, int, gene的start的位置(与strand无关, start<end)
             end, int, gene的end的位置(与strand无关, start<end)
-            geneId, str, 带有版本号
+            geneId, str
+            geneVersion, int
             geneName, str
             geneBiotype, str
             exonList, list, 存储该gene所包含的所有exonId
@@ -1182,7 +1212,7 @@ class Gene(object):
         refresh()               更新gene的exonList, 并更新transcriptDict中每个transcript的exonList
         reIndex()               重新建立transcriptIndex
     '''
-    def __init__(self, status, chr, strand, start, end, geneId, geneName, geneBiotype, exonList=None, transcriptDict=None, transcriptIndex=None, transcriptExisted=None):
+    def __init__(self, status, chr, strand, start, end, geneId, geneName, geneBiotype, geneVersion=-1, exonList=None, transcriptDict=None, transcriptIndex=None, transcriptExisted=None):
         # 基础属性
         self.status = status
         self.chr = chr
@@ -1190,6 +1220,7 @@ class Gene(object):
         self.start = start
         self.end = end
         self.geneId = geneId
+        self.geneVersion = int(geneVersion)
         self.geneName = geneName
         self.geneBiotype = geneBiotype
         self.exonList = (exonList, [])[exonList is None]
@@ -1407,7 +1438,7 @@ class Gene(object):
             # 存在transcript使用该exon
             return {self.geneId: transcriptSet}
 
-    def transcriptAdd(self, status, transcriptId, transcriptName, transcriptBiotype, start, end, exonList, sample, counts):
+    def transcriptAdd(self, status, transcriptId, transcriptVersion, transcriptName, transcriptBiotype, start, end, exonList, sample, counts):
         '''
         input:
             status, str
@@ -1449,6 +1480,7 @@ class Gene(object):
             # transcriptId未记录 且start未记录 新
             self.transcriptDict[transcriptId] = Transcript(status=status,
                                                            transcriptId=transcriptId,
+                                                           transcriptVersion=transcriptVersion,
                                                            transcriptName=transcriptName,
                                                            transcriptBiotype=transcriptBiotype,
                                                            start=start,
@@ -1461,6 +1493,7 @@ class Gene(object):
             # transcriptId未记录 且start已记录 且end未记录 新
             self.transcriptDict[transcriptId] = Transcript(status=status,
                                                            transcriptId=transcriptId,
+                                                           transcriptVersion=transcriptVersion,
                                                            transcriptName=transcriptName,
                                                            transcriptBiotype=transcriptBiotype,
                                                            start=start,
@@ -1480,6 +1513,7 @@ class Gene(object):
             # transcriptId未记录 且start已记录 且end已记录 且exon组成独一无二 新
             self.transcriptDict[transcriptId] = Transcript(status=status,
                                                            transcriptId=transcriptId,
+                                                           transcriptVersion=transcriptVersion,
                                                            transcriptName=transcriptName,
                                                            transcriptBiotype=transcriptBiotype,
                                                            start=start,
