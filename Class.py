@@ -686,7 +686,7 @@ class Total(object):
 
         return result
 
-    def exonIndexBuild(self, siteType, statusSet=None):
+    def exonIndexBuild(self, siteType="start", statusSet=None):
         '''
         input:
             siteType, str, "start" or "end" or "TSS" or "TES"
@@ -751,7 +751,7 @@ class Total(object):
             # transcriptName未找到
             return None
 
-    def transcriptIndexBuild(self, siteType, statusSet=None):
+    def transcriptIndexBuild(self, siteType="start", statusSet=None):
         '''
         input:
             siteType, str, "start" or "end" or "TSS" or "TES"
@@ -902,7 +902,7 @@ class Total(object):
             # 未能根据geneName寻找到geneId
             return None
 
-    def geneIndexBuild(self, siteType, statusSet=None):
+    def geneIndexBuild(self, siteType="start", statusSet=None):
         '''
         input:
             siteType, str, "start" or "end" or "TSS" or "TES"
@@ -1751,7 +1751,7 @@ class Gene(object):
             # 未能根据transcriptName寻找到transcriptId
             return None
 
-    def transcriptIndexBuild(self, siteType, statusSet=None):
+    def transcriptIndexBuild(self, siteType="start", statusSet=None):
         '''
         input:
             siteType, str, "start" or "end" or "TSS" or "TES"
