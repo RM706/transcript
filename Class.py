@@ -201,6 +201,7 @@ class Total(object):
         _geneCheck()                检查gene是否已记录
         _geneExistedAdd()           向geneExisted中添加映射
         _geneMerge()                合并两个gene
+        _addTSSTES()                自检并更新gene, transcript, exon的TSS及TES信息
         exonAdd()                   添加exon
         exonUseGet()                获取使用指定exon的所有gene及transcript
         transcriptIdGet()           输入一个transcriptId或transcriptName, 返回一个已考虑映射关系的transcriptId或None
@@ -571,6 +572,15 @@ class Total(object):
 
         return {deletedGeneId: remainedGeneId}
 
+    def _addTSSTES(self):
+        for geneObject in self.geneDict.values():
+            geneObject._addTSSTES()
+
+        for exonObject in self.exonDict.values():
+            exonObject._addTSSTES()
+
+        return None
+
     def exonAdd(self, geneId, exonId, exonVersion, status, chr, strand, start, end):
         '''
         change:
@@ -933,6 +943,9 @@ class Total(object):
         for geneId, geneObject in self.geneDict.items():
             geneObject.reIndex()
 
+        # 更新gene, transcript, exon的TSS及TES
+        self._addTSSTES()
+
         return None
 
     def computeRelativeExpression(self):
@@ -1045,14 +1058,18 @@ class Exon(object):
             exonId, str
             exonVersion, int
             chr, str
+            strand, str
             start, int, (与strand无关, start<end)
             end, int, (与strand无关, start<end)
         额外属性
+            TSS, int, 转录起始位点
+            TES, int, 转录终止位点
             countsExpression, dict, {<sample_name1>: <counts>, <sample_name2>: <counts>, ...}
             relativeExpression, dict, {<sample_name1>: <expression>, <sample_name2>: <expression>, ...}
             cellLineExpression, dict, {<cellLine1>: <expression>, <cellLine2>: <expression>, ...}
     方法
-        dictGet(), 获取一个dict, key:value分别为exonId,chr,start,end,status
+        _addTSSTES()                添加exon的TSS及TES信息
+        dictGet()                   获取一个dict, key:value分别为exonId,chr,start,end,status
     '''
     def __init__(self, status, exonId, chr, strand, start, end, exonVersion=-1):
         # 初始化属性
@@ -1064,9 +1081,25 @@ class Exon(object):
         self.start = start
         self.end = end
         # 额外属性
+        self.TSS = None
+        self.TES = None
         self.countsExpression = {}
         self.relativeExpression = {}
         self.cellLineExpression = {}
+
+    def _addTSSTES(self):
+        '''
+        change:
+            判断该exon的TSS及TES
+        '''
+        if self.strand == '+':
+            self.TSS = self.start
+            self.TES = self.end
+        else:
+            self.TSS = self.end
+            self.TES = self.start
+        
+        return None
 
     def dictGet(self):
         '''
@@ -1087,7 +1120,9 @@ class Exon(object):
                 "strand": self.strand,
                 "start": self.start,
                 "end": self.end,
-                "status": self.status}
+                "status": self.status,
+                "TSS": self.TSS,
+                "TES": self.TES}
 
         return temp
 
@@ -1108,9 +1143,13 @@ class Transcript(object):
             countsExpression, dict, {<sample_name1>: <counts>, <sample_name2>: <counts>, ...}
             relativeExpression, dict, {<sample_name1>: <expression>, <sample_name2>: <expression>, ...}
             cellLineExpression, dict, {<cellLine1>: <expression>, <cellLine2>: <expression>, ...}
+        额外属性
+            TSS, int, 转录起始位点
+            TES, int, 转录终止位点
     方法
-        dictGet()       获取一个dict, 包含了该transcript的属性
-        refresh()       重新整理transcript的exonList
+        _addTSSTES()        添加transcript的TSS及TES信息
+        dictGet()           获取一个dict, 包含了该transcript的属性
+        refresh()           重新整理transcript的exonList
     '''
     def __init__(self,status, transcriptId, transcriptName, transcriptBiotype, start, end, transcriptVersion=-1, exonList=None, countsExpression=None, relativeExpression=None, cellLineExpression=None):
         self.status = status
@@ -1124,6 +1163,24 @@ class Transcript(object):
         self.countsExpression = (countsExpression, {})[countsExpression is None]
         self.relativeExpression = (relativeExpression, {})[relativeExpression is None]
         self.cellLineExpression = (cellLineExpression, {})[cellLineExpression is None]
+        # 额外属性
+        self.TSS = None
+        self.TES = None
+
+    def _addTSSTES(self, strand):
+        '''
+        change:
+            根据strand, 判断该transcript的TSS及TES
+        '''
+        strand = strand
+        if strand == '+':
+            self.TSS = self.start
+            self.TES = self.end
+        else:
+            self.TSS = self.end
+            self.TES = self.start
+        
+        return None
 
     def dictGet(self):
         '''
@@ -1138,6 +1195,8 @@ class Transcript(object):
                 "status": self.status,
                 "start": self.start,
                 "end": self.end,
+                "TSS": self.TSS,
+                "TES": self.TES,
                 "exonList": ", ".join(set(self.exonList))}
 
         return temp
@@ -1196,6 +1255,8 @@ class Gene(object):
             transcriptIndex, dict, 建立基因中transcript的索引 {<start>: {<end>: <transcriptId>}}
             transcriptExisted, dict, 存储transcriptId的映射关系
         额外属性
+            TSS, int, 转录起始位点
+            TSE, int, 转录终止位点
             geneClass, str, TSS-PAS or ATSS-PAS or TSS-APA or ATSS-APA
             countsExpression, dict, {<sample_name1>: <counts>, <sample_name2>: <counts>, ...}
             relativeExpression, dict, {<sample_name1>: <expression>, <sample_name2>: <expression>, ...}
@@ -1205,6 +1266,7 @@ class Gene(object):
         _transcriptCheck()      检查transcript是否已被记录
         _transcriptExistedAdd() 向transcriptExisted中添加映射
         _transcriptMerge()      合并同一gene中的两个transcript
+        _addTSSTES()            添加gene的TSS及TES信息
         dictGet()               获取一个dict, 含有该gene的基本属性
         exonUseGet()            查询该gene中使用了指定的exon的transcript
         transcriptAdd()         向transcriptDict中添加Transcript对象
@@ -1228,6 +1290,8 @@ class Gene(object):
         self.transcriptIndex = (transcriptIndex, {})[transcriptIndex is None]  # {<start>: {<end>: [], ...}, ...}
         self.transcriptExisted = (transcriptExisted, {})[transcriptExisted is None]  # {<old transcript id>: <existed transcript id>}
         # 额外属性
+        self.TSS = None
+        self.TES = None
         self.geneClass = None  # TSS-PAS or ATSS-PAS or TSS-APA or ATSS-APA
         self.countsExpression = {}
         self.relativeExpression = {}
@@ -1389,6 +1453,23 @@ class Gene(object):
 
         return {deletedTranscriptId: remainedTranscriptId}
 
+    def _addTSSTES(self):
+        '''
+        change:
+            根据strand, 判断该gene及所包含的transcript的TSS及TES
+        '''
+        if self.strand == '+':
+            self.TSS = self.start
+            self.TES = self.end
+        else:
+            self.TSS = self.end
+            self.TES = self.start
+
+        for transcriptId, transcriptObject in self.transcriptDict.items():
+            transcriptObject._addTSSTES(strand=self.strand)
+        
+        return None
+
     def dictGet(self):
         '''
         change:
@@ -1405,6 +1486,8 @@ class Gene(object):
                 "chr": self.chr,
                 "start": self.start,
                 "end": self.end,
+                "TSS": self.TSS,
+                "TES": self.TES,
                 "transcript": ", ".join(set(self.transcriptDict.keys())),
                 "exon": ", ".join(set(self.exonList))}
 
