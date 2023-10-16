@@ -336,7 +336,11 @@ class Total(object):
         self._exonExistedAdd(oldExonId=deletedExonId, newExonId=remainedExonId)
 
         # 修改self.exonIndex
-        self.exonIndex[self.exonDict[deletedExonId].chr][self.exonDict[deletedExonId].start][self.exonDict[deletedExonId].end] = remainedExonId
+        try:
+            self.exonIndex[self.exonDict[deletedExonId].chr][self.exonDict[deletedExonId].start][self.exonDict[deletedExonId].end] = remainedExonId
+        except KeyError as k:
+            print(k)
+            print("[Warning]_exonMerge()--remained:{}, delete:{}, start:{}, end:{}".format(remainedExonId, deletedExonId, self.exonDict[deletedExonId].start, self.exonDict[deletedExonId].end))
 
         # self.exonDict中删除不可靠exon
         self.exonDict.pop(deletedExonId)
@@ -1165,9 +1169,9 @@ class Exon(object):
             strand, str
             start, int, (与strand无关, start<end)
             end, int, (与strand无关, start<end)
-        额外属性
             TSS, int, 转录起始位点
             TES, int, 转录终止位点
+        额外属性
             countsExpression, dict, {<sample_name1>: <counts>, <sample_name2>: <counts>, ...}
             relativeExpression, dict, {<sample_name1>: <expression>, <sample_name2>: <expression>, ...}
             cellLineExpression, dict, {<cellLine1>: <expression>, <cellLine2>: <expression>, ...}
@@ -1175,7 +1179,7 @@ class Exon(object):
         _addTSSTES()                添加exon的TSS及TES信息
         dictGet()                   获取一个dict, key:value分别为exonId,chr,start,end,status
     '''
-    def __init__(self, status, exonId, chr, strand, start, end, exonVersion=-1):
+    def __init__(self, status, exonId, chr, strand, start, end, TSS=None, TES=None, exonVersion=-1):
         # 初始化属性
         self.status = status
         self.exonId = exonId
@@ -1184,9 +1188,9 @@ class Exon(object):
         self.strand = strand
         self.start = start
         self.end = end
+        self.TSS = TSS
+        self.TES = TES
         # 额外属性
-        self.TSS = None
-        self.TES = None
         self.countsExpression = {}
         self.relativeExpression = {}
         self.cellLineExpression = {}
@@ -1255,7 +1259,7 @@ class Transcript(object):
         dictGet()           获取一个dict, 包含了该transcript的属性
         refresh()           重新整理transcript的exonList
     '''
-    def __init__(self,status, transcriptId, transcriptName, transcriptBiotype, start, end, transcriptVersion=-1, exonList=None, countsExpression=None, relativeExpression=None, cellLineExpression=None):
+    def __init__(self,status, transcriptId, transcriptName, transcriptBiotype, start, end, TSS=None, TES=None, transcriptVersion=-1, exonList=None, countsExpression=None, relativeExpression=None, cellLineExpression=None):
         self.status = status
         self.transcriptId = transcriptId
         self.transcriptVersion = int(transcriptVersion)
@@ -1267,9 +1271,8 @@ class Transcript(object):
         self.countsExpression = (countsExpression, {})[countsExpression is None]
         self.relativeExpression = (relativeExpression, {})[relativeExpression is None]
         self.cellLineExpression = (cellLineExpression, {})[cellLineExpression is None]
-        # 额外属性
-        self.TSS = None
-        self.TES = None
+        self.TSS = TSS
+        self.TES = TES
 
     def _addTSSTES(self, strand):
         '''
@@ -1379,7 +1382,7 @@ class Gene(object):
         refresh()               更新gene的exonList, 并更新transcriptDict中每个transcript的exonList
         reIndex()               重新建立transcriptIndex
     '''
-    def __init__(self, status, chr, strand, start, end, geneId, geneName, geneBiotype, geneVersion=-1, exonList=None, transcriptDict=None, transcriptIndex=None, transcriptExisted=None):
+    def __init__(self, status, chr, strand, start, end, geneId, geneName, geneBiotype, TSS=None, TES=None, geneVersion=-1, exonList=None, transcriptDict=None, transcriptIndex=None, transcriptExisted=None):
         # 基础属性
         self.status = status
         self.chr = chr
@@ -1394,9 +1397,9 @@ class Gene(object):
         self.transcriptDict = (transcriptDict, {})[transcriptDict is None]
         self.transcriptIndex = (transcriptIndex, {})[transcriptIndex is None]  # {<start>: {<end>: [], ...}, ...}
         self.transcriptExisted = (transcriptExisted, {})[transcriptExisted is None]  # {<old transcript id>: <existed transcript id>}
+        self.TSS = TSS
+        self.TES = TES
         # 额外属性
-        self.TSS = None
-        self.TES = None
         self.geneClass = None  # TSS-PAS or ATSS-PAS or TSS-APA or ATSS-APA
         self.countsExpression = {}
         self.relativeExpression = {}
