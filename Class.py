@@ -272,15 +272,22 @@ class Total(object):
         change:
             向exonExisted中添加映射
         return:
-            bool, True--newExonId已被映射, False--newExonId未被映射
+            bool, True--newExonId已被映射, False--newExonId未被映射, None--异常: oldExonId将映射到oldExonId
         '''
         oldExonId = oldExonId
         newExonId = newExonId
 
         if newExonId in self.exonExisted.keys():
+            if oldExonId == self.exonExisted[newExonId]:
+                print("[Warning]_exonExistedAdd()--same exonId {}, {}-->{}-->{}".format(oldExonId, oldExonId, newExonId, self.exonExisted[newExonId]))
+                return None
             self.exonExisted[oldExonId] = self.exonExisted[newExonId]
             return True
         else:
+            # 不添加exonId相同的映射
+            if oldExonId == newExonId:
+                print("[Warning]_exonExistedAdd()--same exonId {}, {}-->{}".format(oldExonId, oldExonId, newExonId))
+                return None
             self.exonExisted[oldExonId] = newExonId
             return False
 
@@ -311,6 +318,9 @@ class Total(object):
             raise ValueError("[Error]exonMerge() the exonId1 {} not in self.exonDict".format(exonId1))
         elif exonId2 not in self.exonDict.keys():
             raise ValueError("[Error]exonMerge() the exonId2 {} not in self.exonDict".format(exonId2))
+        elif exonId1 == exonId2:
+            print("[Warning]_exonMerge()--exonId1 {} == exonId2 {}".format(exonId1, exonId2))
+            return {"": ""}
         else:
             pass
 
@@ -333,7 +343,11 @@ class Total(object):
             # 将exon2映射到exon1
             deletedExonId = exonId2
             remainedExonId = exonId1
-        self._exonExistedAdd(oldExonId=deletedExonId, newExonId=remainedExonId)
+        marker = self._exonExistedAdd(oldExonId=deletedExonId, newExonId=remainedExonId)
+
+        # 处理异常: deletedExonId == remainedExonId
+        if marker is None:
+            return {"": ""}
 
         # 修改self.exonIndex
         try:
