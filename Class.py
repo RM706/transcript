@@ -1,6 +1,6 @@
 import numpy
 
-classVersion = "V1.3(Editor) 2023-10-14"
+classVersion = "V1.4(Editor) 2023-10-16"
 
 '''
 函数说明:
@@ -279,13 +279,14 @@ class Total(object):
 
         if newExonId in self.exonExisted.keys():
             if oldExonId == self.exonExisted[newExonId]:
+                # 不添加exonId相同的映射
                 print("[Warning]_exonExistedAdd()--same exonId {}, {}-->{}-->{}".format(oldExonId, oldExonId, newExonId, self.exonExisted[newExonId]))
                 return None
             self.exonExisted[oldExonId] = self.exonExisted[newExonId]
             return True
         else:
-            # 不添加exonId相同的映射
             if oldExonId == newExonId:
+                # 不添加exonId相同的映射
                 print("[Warning]_exonExistedAdd()--same exonId {}, {}-->{}".format(oldExonId, oldExonId, newExonId))
                 return None
             self.exonExisted[oldExonId] = newExonId
@@ -432,7 +433,10 @@ class Total(object):
                 deletedGeneId = geneId2
                 remainedTranscriptId = transcriptId1
                 remainedGeneId = geneId1
-            self.geneDict[remainedGeneId]._transcriptExistedAdd(oldTranscriptId=deletedTranscriptId, newTranscriptId=remainedTranscriptId)
+            marker = self.geneDict[remainedGeneId]._transcriptExistedAdd(oldTranscriptId=deletedTranscriptId, newTranscriptId=remainedTranscriptId)
+            # 处理异常: deletedTranscriptId == remainedTranscriptId
+            if marker is None:
+                return {"": ""}
             # 更改remainedTranscript的countsExpression
             for sample, counts in self.geneDict[deletedGeneId].transcriptDict[deletedTranscriptId].countsExpression.items():
                 temp = self.geneDict[remainedGeneId].transcriptDict[remainedTranscriptId].countsExpression.get(sample, 0)
@@ -498,15 +502,23 @@ class Total(object):
         change:
             向geneExisted中添加映射
         return:
-            bool, True--newExonId已被映射, False--newExonId未被映射
+            bool, True--newExonId已被映射, False--newExonId未被映射, None--异常: oldExonId将映射到oldExonId
         '''
         oldGeneId = oldGeneId
         newGeneId = newGeneId
 
         if newGeneId in self.geneExisted.keys():
+            if oldGeneId == self.geneExisted[newGeneId]:
+                # 不添加geneId相同的映射
+                print("[Warning]_geneExistedAdd()--same geneId {}, {}-->{}-->{}".format(oldGeneId, oldGeneId, newGeneId, self.geneExisted[newGeneId]))
+                return None
             self.geneExisted[oldGeneId] = self.geneExisted[newGeneId]
             return True
         else:
+            if oldGeneId == newGeneId:
+                # 不添加geneId相同的映射
+                print("[Warning]_geneExistedAdd()--same geneId {}, {}-->{}".format(oldGeneId, oldGeneId, newGeneId))
+                return None
             self.geneExisted[oldGeneId] = newGeneId
             return False
 
@@ -558,7 +570,11 @@ class Total(object):
             # 将geneId2映射到geneId1
             deletedGeneId = geneId2
             remainedGeneId = geneId1
-        self._geneExistedAdd(oldGeneId=deletedGeneId, newGeneId=remainedGeneId)
+        marker = self._geneExistedAdd(oldGeneId=deletedGeneId, newGeneId=remainedGeneId)
+
+        # 处理异常: deletedGeneId == remainedGeneId
+        if marker is None:
+            return {"": ""}
 
         # 合并exonList
         temp = self.geneDict[remainedGeneId].exonList + self.geneDict[deletedGeneId].exonList
@@ -713,16 +729,17 @@ class Total(object):
             index, dict, {<chr>: {<siteType>: {<siteType2>: <exonId>}, ...}, ...}
         '''
         siteType = siteType
-        statusSet = (statusSet, ("KNOWN", "NOVEL", "CORRECTED-start", "CORRECTED-end", "CORRECTED-start-end", "CORRECTED-end-start"))[statusSet is None]
+        statusSet = (statusSet, None)[statusSet is None]
 
         mapped = {"start": "end", "end": "start", "TSS": "TES", "TES": "TSS"}
         index = {}
         for exonId, exonObject in self.exonDict.items():
             chr = exonObject.chr
             status = exonObject.status
-            # 过滤掉不符合条件的gene
-            if status not in statusSet:
-                continue
+            if statusSet is not None:
+                # 过滤掉不符合条件的gene
+                if status not in statusSet:
+                    continue
             data = {"start": exonObject.start, "end": exonObject.end, "TSS": exonObject.TSS, "TES": exonObject.TES}
             if chr not in index.keys():
                 index[chr] = {data[siteType]: {data[mapped[siteType]]: exonId}}
@@ -778,7 +795,7 @@ class Total(object):
             index, dict, {<chr>: {<siteType>: {siteType2: geneId}, ...}, ...}
         '''
         siteType = siteType
-        statusSet = (statusSet, ("KNOWN", "NOVEL", "CORRECTED-start", "CORRECTED-end", "CORRECTED-start-end", "CORRECTED-end-start"))[statusSet is None]
+        statusSet = (statusSet, None)[statusSet is None]
 
         mapped = {"start": "end", "end": "start", "TSS": "TES", "TES": "TSS"}
         index = {}
@@ -788,8 +805,9 @@ class Total(object):
             for transcriptId, transcriptObject in geneObject.transcriptDict.items():
                 status = transcriptObject.status
                 # 过滤掉不符合条件的gene
-                if status not in statusSet:
-                    continue
+                if statusSet is not None:
+                    if status not in statusSet:
+                        continue
                 data = {"start": transcriptObject.start, "end": transcriptObject.end, "TSS": transcriptObject.TSS, "TES": transcriptObject.TES}
                 if chr not in index.keys():
                     index[chr] = {data[siteType]: {data[mapped[siteType]]: [transcriptId]}}
@@ -929,7 +947,7 @@ class Total(object):
             index, dict, {<chr>: {<siteType>: {siteType2: geneId}, ...}, ...}
         '''
         siteType = siteType
-        statusSet = (statusSet, ("KNOWN", "NOVEL", "CORRECTED-start", "CORRECTED-end", "CORRECTED-start-end", "CORRECTED-end-start"))[statusSet is None]
+        statusSet = (statusSet, None)[statusSet is None]
 
         mapped = {"start": "end", "end": "start", "TSS": "TES", "TES": "TSS"}
         index = {}
@@ -937,8 +955,9 @@ class Total(object):
             chr = geneObject.chr
             status = geneObject.status
             # 过滤掉不符合条件的gene
-            if status not in statusSet:
-                continue
+            if statusSet is not None:
+                if status not in statusSet:
+                    continue
             data = {"start": geneObject.start, "end": geneObject.end, "TSS": geneObject.TSS, "TES": geneObject.TES}
             if chr not in index.keys():
                 index[chr] = {data[siteType]: {data[mapped[siteType]]: geneId}}
@@ -1497,15 +1516,23 @@ class Gene(object):
         change:
             向transcriptExisted中添加映射{oldTranscriptId: newTranscriptId}
         return:
-            bool, True--newTranscriptId已被映射, False--newTranscriptId未被映射
+            bool, True--newTranscriptId已被映射, False--newTranscriptId未被映射, None--异常: oldTranscriptId将映射到oldTranscriptId
         '''
         oldTranscriptId = oldTranscriptId
         newTranscriptId = newTranscriptId
 
         if newTranscriptId in self.transcriptExisted.keys():
+            if oldTranscriptId == self.transcriptExisted[newTranscriptId]:
+                # 不添加transcriptId相同的映射
+                print("[Warning]_transcriptExistedAdd()--same transcriptId {}, {}-->{}-->{}".format(oldTranscriptId, oldTranscriptId, newTranscriptId, self.transcriptExisted[newTranscriptId]))
+                return None
             self.transcriptExisted[oldTranscriptId] = self.transcriptExisted[newTranscriptId]
             return True
         else:
+            if oldTranscriptId == newTranscriptId:
+                # 不添加transcriptId相同的映射
+                print("[Warning]_transcriptExistedAdd()--same transcriptId {}, {}-->{}".format(oldTranscriptId, oldTranscriptId, newTranscriptId))
+                return None
             self.transcriptExisted[oldTranscriptId] = newTranscriptId
             return False
 
@@ -1558,7 +1585,12 @@ class Gene(object):
             # 将transcriptId2映射到transcriptId1
             deletedTranscriptId = transcriptId2
             remainedTranscriptId = transcriptId1
-        self._transcriptExistedAdd(oldTranscriptId=deletedTranscriptId, newTranscriptId=remainedTranscriptId)
+        marker = self._transcriptExistedAdd(oldTranscriptId=deletedTranscriptId, newTranscriptId=remainedTranscriptId)
+
+        # 处理异常: deletedTranscriptId == remainedTranscriptId
+        if marker is None:
+            return {"": ""}
+
         deletedTranscript = self.transcriptDict[deletedTranscriptId]
 
         # 更新countsExpression
