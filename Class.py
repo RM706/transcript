@@ -307,7 +307,7 @@ class Total(object):
             2. 在self.exonDict中删除不可靠exon
             3. 返回一个dict, 保存有{deletedExonId: exonId}
         return:
-            dict, {<deletedExonId>: <exonId>}
+            tuple, 正常情况下返回(<deletedExonId>: <exonId>), 但当deletedExonId==remainedExonId时会返回("", "")
         '''
         exonId1 = exonId1
         exonId2 = exonId2
@@ -348,7 +348,7 @@ class Total(object):
 
         # 处理异常: deletedExonId == remainedExonId
         if marker is None:
-            return {"": ""}
+            return ("", "")
 
         # 修改self.exonIndex
         try:
@@ -360,7 +360,7 @@ class Total(object):
         # self.exonDict中删除不可靠exon
         self.exonDict.pop(deletedExonId)
 
-        return {deletedExonId, remainedExonId}
+        return (deletedExonId, remainedExonId)
 
     def _transcriptMerge(self, transcriptId1, transcriptId2, geneId1, geneId2):
         '''
@@ -384,6 +384,8 @@ class Total(object):
                     删除transcriptDict中deletedTranscript对象
                     更新两gene的exonList  refresh()
                     重建两gene的transcriptIndex  reIndex()
+        return:
+            tuple, 正常情况下返回(<deletedTranscriptId>, <remainedTranscriptId>), 当deletedTranscriptId==remainedTrarnscriptId时会返回("", "")
         '''
         transcriptId1 = transcriptId1
         transcriptId2 = transcriptId2
@@ -393,7 +395,8 @@ class Total(object):
         if geneId1 == geneId2:
             # 两transcript位于同一gene
             # 调用Gene对象中的_transcriptMerge()
-            self.geneDict[geneId1]._transcriptMerge(transcriptId1=transcriptId1, transcriptId2=transcriptId2)
+            (deletedTranscriptId, remainedTranscriptId) = self.geneDict[geneId1]._transcriptMerge(transcriptId1=transcriptId1, transcriptId2=transcriptId2)
+            return (deletedTranscriptId, remainedTranscriptId)
         else:
             # 两transcript位于不同gene
             # 检查两transcriptId是否可映射
@@ -436,7 +439,7 @@ class Total(object):
             marker = self.geneDict[remainedGeneId]._transcriptExistedAdd(oldTranscriptId=deletedTranscriptId, newTranscriptId=remainedTranscriptId)
             # 处理异常: deletedTranscriptId == remainedTranscriptId
             if marker is None:
-                return {"": ""}
+                return ("", "")
             # 更改remainedTranscript的countsExpression
             for sample, counts in self.geneDict[deletedGeneId].transcriptDict[deletedTranscriptId].countsExpression.items():
                 temp = self.geneDict[remainedGeneId].transcriptDict[remainedTranscriptId].countsExpression.get(sample, 0)
@@ -457,7 +460,7 @@ class Total(object):
             self.geneDict[deletedGeneId].reIndex()
             self.geneDict[remainedGeneId].reIndex()
 
-            return None
+            return (deletedTranscriptId, remainedTranscriptId)
 
     def _geneCheck(self, geneId, chr, strand, start, end):
         '''
@@ -540,6 +543,8 @@ class Total(object):
                     transcriptId相同则需要合并countsExpression
                 重建transcriptIndex
             3. 删除deletedGene
+        return:
+            tuple, 正常情况下返回(<deletedGeneId>, <remainedGeneId>), 但当deletedExonId==remainedExonId时会返回("", "")
         '''
         geneId1 = geneId1
         geneId2 = geneId2
@@ -574,7 +579,7 @@ class Total(object):
 
         # 处理异常: deletedGeneId == remainedGeneId
         if marker is None:
-            return {"": ""}
+            return ("", "")
 
         # 合并exonList
         temp = self.geneDict[remainedGeneId].exonList + self.geneDict[deletedGeneId].exonList
@@ -607,7 +612,7 @@ class Total(object):
         # 删除deletedGene
         self.geneDict.pop(deletedGeneId)
 
-        return {deletedGeneId: remainedGeneId}
+        return (deletedGeneId, remainedGeneId)
 
     def _addTSSTES(self):
         for geneObject in self.geneDict.values():
@@ -1036,7 +1041,8 @@ class Total(object):
                     else:
                         # 该exon的end已记录, 表明该exon已重复
                         existedExonId = newIndex[chr][start][end]
-                        self._exonMerge(exonId1=existedExonId, exonId2=exonId)
+                        (deletedExonId, remainedExonId) = self._exonMerge(exonId1=existedExonId, exonId2=exonId)
+                        newIndex[chr][start][end] = remainedExonId
         self.exonIndex = newIndex
 
         # 重新建立transcriptIndex
@@ -1077,7 +1083,8 @@ class Total(object):
                             # 该gene的end已记录
                             # 认为两gene可以合并, 尽量保留existedGene
                             existedGeneId = newIndex[chr][strand][start][end]
-                            self._geneMerge(geneId1=existedGeneId, geneId2=geneId)
+                            (deletedGeneId, remainedGeneId) = self._geneMerge(geneId1=existedGeneId, geneId2=geneId)
+                            newIndex[chr][strand][start][end] = remainedGeneId
         self.geneIndex = newIndex
 
         # 重新建立transcriptIndex
@@ -1550,7 +1557,7 @@ class Gene(object):
             4. 重建transcriptIndex
             # 5. 不更新gene的exonList
         return:
-            dict, {<deletedTranscriptId>: <remainedTranscriptId>}
+            tuple, 正常情况下会返回(<deletedTranscriptId>, <remainedTranscriptId>), 但当deletedTranscriptId==remainedTranscriptId时会返回("", "")
         '''
         transcriptId1 = transcriptId1
         transcriptId2 = transcriptId2
@@ -1589,7 +1596,7 @@ class Gene(object):
 
         # 处理异常: deletedTranscriptId == remainedTranscriptId
         if marker is None:
-            return {"": ""}
+            return ("", "")
 
         deletedTranscript = self.transcriptDict[deletedTranscriptId]
 
@@ -1605,7 +1612,7 @@ class Gene(object):
         # 删除deletedTranscript
         self.transcriptDict.pop(deletedTranscriptId)
 
-        return {deletedTranscriptId: remainedTranscriptId}
+        return (deletedTranscriptId, remainedTranscriptId)
 
     def _addTSSTES(self):
         '''
