@@ -282,7 +282,7 @@ class Total(object):
         change:
             向exonExisted中添加映射
         return:
-            bool, True
+            bool, 正常情况下返回True, 但若这个映射是自我映射则返回False
         '''
         oldExonId = oldExonId
         newExonId = newExonId
@@ -305,6 +305,12 @@ class Total(object):
         # 寻找到最终的newExonId
         while newExonId in keys:
             newExonId = self.exonExisted[newExonId]
+
+        # 不进行自我映射
+        if oldExonId == newExonId:
+            return False
+        elif newExonId in oldExonIdSet:
+            return False
 
         for exonId in oldExonIdSet:
             self.exonExisted[exonId] = newExonId
@@ -389,7 +395,7 @@ class Total(object):
         marker = self._exonExistedAdd(oldExonId=deletedExonId, newExonId=remainedExonId)
 
         # 处理异常: deletedExonId == remainedExonId
-        if marker is None:
+        if marker is False:
             return ("", "")
 
         # 修改self.exonIndex
@@ -480,7 +486,7 @@ class Total(object):
                 remainedGeneId = geneId1
             marker = self.geneDict[remainedGeneId]._transcriptExistedAdd(oldTranscriptId=deletedTranscriptId, newTranscriptId=remainedTranscriptId)
             # 处理异常: deletedTranscriptId == remainedTranscriptId
-            if marker is None:
+            if marker is False:
                 return ("", "")
             # 更改remainedTranscript的countsExpression
             for sample, counts in self.geneDict[deletedGeneId].transcriptDict[deletedTranscriptId].countsExpression.items():
@@ -547,7 +553,7 @@ class Total(object):
         change:
             向geneExisted中添加映射
         return:
-            bool, True--oldGeneId或newGeneId已被映射, False--newGeneId未被映射, None--异常: oldGeneId将映射到oldGeneId
+            bool, True--已进行映射, False--该映射为自我映射
         '''
         oldGeneId = oldGeneId
         newGeneId = newGeneId
@@ -570,6 +576,12 @@ class Total(object):
         # 寻找到最终的newGeneId
         while newGeneId in keys:
             newGeneId = self.geneExisted[newGeneId]
+
+        # 不进行自我映射
+        if oldGeneId == newGeneId:
+            return False
+        elif newGeneId in oldGeneIdSet:
+            return False
 
         for geneId in oldGeneIdSet:
             self.geneExisted[geneId] = newGeneId
@@ -629,7 +641,7 @@ class Total(object):
         marker = self._geneExistedAdd(oldGeneId=deletedGeneId, newGeneId=remainedGeneId)
 
         # 处理异常: deletedGeneId == remainedGeneId
-        if marker is None:
+        if marker is False:
             return ("", "")
 
         # 合并exonList
@@ -1388,6 +1400,7 @@ class Transcript(object):
             dict, ...
         '''
         temp = {"transcriptId": self.transcriptId,
+                "transcriptVersion": self.transcriptVersion,
                 "transcriptName": self.transcriptName,
                 "transcriptBiotype": self.transcriptBiotype,
                 "status": self.status,
@@ -1574,7 +1587,7 @@ class Gene(object):
         change:
             向transcriptExisted中添加映射{oldTranscriptId: newTranscriptId}
         return:
-            bool, True
+            bool, True-已添加映射  False-自我映射
         '''
         oldTranscriptId = oldTranscriptId
         newTranscriptId = newTranscriptId
@@ -1597,6 +1610,12 @@ class Gene(object):
         # 寻找到最终的newTranscriptId
         while newTranscriptId in keys:
             newTranscriptId = self.transcriptExisted[newTranscriptId]
+
+        # 不进行自我映射
+        if oldTranscriptId == newTranscriptId:
+            return False
+        elif newTranscriptId in oldTranscriptIdSet:
+            return False
 
         for transcriptId in oldTranscriptIdSet:
             self.transcriptExisted[transcriptId] = newTranscriptId
@@ -1700,6 +1719,7 @@ class Gene(object):
         '''
 
         temp = {"geneId": self.geneId,
+                "geneVersion": self.geneVersion,
                 "geneName": self.geneName,
                 "geneBiotype": self.geneBiotype,
                 "status": self.status,
