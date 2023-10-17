@@ -1,6 +1,15 @@
 import numpy
 
-classVersion = "V1.4(Editor) 2023-10-16"
+classVersion = "V1.5(Editor) 2023-10-17"
+
+'''
+提示:
+    在对exon, transcript, gene的对象进行增, 删, 合并后, 需要进行的操作
+        refresh()
+        reIndex()
+        computeRelativeExpression()
+        computeCellLineExpression()
+'''
 
 '''
 函数说明:
@@ -196,6 +205,7 @@ class Total(object):
     方法
         _exonCheck()                检查exon是否已记录
         _exonExistedAdd()           向exonExisted中添加映射
+        _exonExistedRefresh()       去除exonExisted中的多重映射
         _exonMerge()                合并两个exon
         _transcriptMerge()          合并两个transcript, 可跨gene合并
         _geneCheck()                检查gene是否已记录
@@ -272,25 +282,57 @@ class Total(object):
         change:
             向exonExisted中添加映射
         return:
-            bool, True--newExonId已被映射, False--newExonId未被映射, None--异常: oldExonId将映射到oldExonId
+            bool, True
         '''
         oldExonId = oldExonId
         newExonId = newExonId
 
-        if newExonId in self.exonExisted.keys():
-            if oldExonId == self.exonExisted[newExonId]:
-                # 不添加exonId相同的映射
-                print("[Warning]_exonExistedAdd()--same exonId {}, {}-->{}-->{}".format(oldExonId, oldExonId, newExonId, self.exonExisted[newExonId]))
-                return None
-            self.exonExisted[oldExonId] = self.exonExisted[newExonId]
-            return True
-        else:
-            if oldExonId == newExonId:
-                # 不添加exonId相同的映射
-                print("[Warning]_exonExistedAdd()--same exonId {}, {}-->{}".format(oldExonId, oldExonId, newExonId))
-                return None
-            self.exonExisted[oldExonId] = newExonId
-            return False
+        keys = set(self.exonExisted.keys())
+        values = set(self.exonExisted.values())
+
+        # 寻找到所有可以映射到newExonId的exonId
+        oldExonIdSet = {oldExonId}
+        workSet = {oldExonId}
+        while workSet:
+            exonId = workSet.pop()
+            if exonId in values:
+                # 有其他的exonId映射到了该exonId
+                temp = {k for k, v in self.exonExisted.items() if v==exonId}
+                # workSet添加这些exonId, 检查是否还有exonId可映射到这些exonId        
+                workSet = workSet.union(temp)
+            else:
+                oldExonIdSet.add(exonId)
+        # 寻找到最终的newExonId
+        while newExonId in keys:
+            newExonId = self.exonExisted[newExonId]
+
+        for exonId in oldExonIdSet:
+            self.exonExisted[exonId] = newExonId
+
+        return True
+
+    def _exonExistedRefresh(self):
+        '''
+        change:
+            一般情况下应该用不上这个函数
+            修改exonExisted中的A-->B-->C-->D这种映射
+                A-->D
+                B-->D
+                C-->D
+        '''
+        temp = set()
+
+        keys = set(self.exonExisted.keys())
+        values = set(self.exonExisted.values())
+        for k, v in self.exonExisted.items():
+            if k in values or v in keys:
+                temp.add((k, v))
+
+        while temp:
+            (k, v) = temp.pop()
+            self._exonExistedAdd(oldExonId=k, newExonId=v)
+
+        return None
 
     def _exonMerge(self, exonId1, exonId2):
         '''
@@ -505,25 +547,34 @@ class Total(object):
         change:
             向geneExisted中添加映射
         return:
-            bool, True--newExonId已被映射, False--newExonId未被映射, None--异常: oldExonId将映射到oldExonId
+            bool, True--oldGeneId或newGeneId已被映射, False--newGeneId未被映射, None--异常: oldGeneId将映射到oldGeneId
         '''
         oldGeneId = oldGeneId
         newGeneId = newGeneId
 
-        if newGeneId in self.geneExisted.keys():
-            if oldGeneId == self.geneExisted[newGeneId]:
-                # 不添加geneId相同的映射
-                print("[Warning]_geneExistedAdd()--same geneId {}, {}-->{}-->{}".format(oldGeneId, oldGeneId, newGeneId, self.geneExisted[newGeneId]))
-                return None
-            self.geneExisted[oldGeneId] = self.geneExisted[newGeneId]
-            return True
-        else:
-            if oldGeneId == newGeneId:
-                # 不添加geneId相同的映射
-                print("[Warning]_geneExistedAdd()--same geneId {}, {}-->{}".format(oldGeneId, oldGeneId, newGeneId))
-                return None
-            self.geneExisted[oldGeneId] = newGeneId
-            return False
+        keys = set(self.geneExisted.keys())
+        values = set(self.geneExisted.values())
+
+        # 寻找到所有可以映射到newGeneId的geneId
+        oldGeneIdSet = {oldGeneId}
+        workSet = {oldGeneId}
+        while workSet:
+            geneId = workSet.pop()
+            if geneId in values:
+                # 有其他的geneId映射到了该geneId
+                temp = {k for k, v in self.geneExisted.items() if v==geneId}
+                # workSet添加这些geneId, 检查是否还有geneId可映射到这些geneId        
+                workSet = workSet.union(temp)
+            else:
+                oldGeneIdSet.add(geneId)
+        # 寻找到最终的newGeneId
+        while newGeneId in keys:
+            newGeneId = self.geneExisted[newGeneId]
+
+        for geneId in oldGeneIdSet:
+            self.geneExisted[geneId] = newGeneId
+
+        return True
 
     def _geneMerge(self, geneId1, geneId2):
         '''
@@ -1326,7 +1377,7 @@ class Transcript(object):
         else:
             self.TSS = self.end
             self.TES = self.start
-        
+
         return None
 
     def dictGet(self):
@@ -1523,25 +1574,34 @@ class Gene(object):
         change:
             向transcriptExisted中添加映射{oldTranscriptId: newTranscriptId}
         return:
-            bool, True--newTranscriptId已被映射, False--newTranscriptId未被映射, None--异常: oldTranscriptId将映射到oldTranscriptId
+            bool, True
         '''
         oldTranscriptId = oldTranscriptId
         newTranscriptId = newTranscriptId
 
-        if newTranscriptId in self.transcriptExisted.keys():
-            if oldTranscriptId == self.transcriptExisted[newTranscriptId]:
-                # 不添加transcriptId相同的映射
-                print("[Warning]_transcriptExistedAdd()--same transcriptId {}, {}-->{}-->{}".format(oldTranscriptId, oldTranscriptId, newTranscriptId, self.transcriptExisted[newTranscriptId]))
-                return None
-            self.transcriptExisted[oldTranscriptId] = self.transcriptExisted[newTranscriptId]
-            return True
-        else:
-            if oldTranscriptId == newTranscriptId:
-                # 不添加transcriptId相同的映射
-                print("[Warning]_transcriptExistedAdd()--same transcriptId {}, {}-->{}".format(oldTranscriptId, oldTranscriptId, newTranscriptId))
-                return None
-            self.transcriptExisted[oldTranscriptId] = newTranscriptId
-            return False
+        keys = set(self.transcriptExisted.keys())
+        values = set(self.transcriptExisted.values())
+
+        # 寻找到所有可以映射到newTranscriptId的transcriptId
+        oldTranscriptIdSet = {oldTranscriptId}
+        workSet = {oldTranscriptId}
+        while workSet:
+            transcriptId = workSet.pop()
+            if transcriptId in values:
+                # 有其他的transcriptId映射到了该transcriptId
+                temp = {k for k, v in self.transcriptExisted.items() if v==transcriptId}
+                # workSet添加这些transcriptId, 检查是否还有transcriptId可映射到这些transcriptId        
+                workSet = workSet.union(temp)
+            else:
+                oldTranscriptIdSet.add(transcriptId)
+        # 寻找到最终的newTranscriptId
+        while newTranscriptId in keys:
+            newTranscriptId = self.transcriptExisted[newTranscriptId]
+
+        for transcriptId in oldTranscriptIdSet:
+            self.transcriptExisted[transcriptId] = newTranscriptId
+
+        return True
 
     def _transcriptMerge(self, transcriptId1, transcriptId2):
         '''
