@@ -3,12 +3,15 @@ import re
 import pandas
 import time
 import gzip
+import tqdm
 
 __functionVersion__ = "V1.1(Editor) 2023-10-12"
 
 '''
 函数说明:
     log()                           装饰器
+    杂项
+        strSplit()          一级函数    将含有version的id分割为[<id>, <version>]
     读取ENCODE数据用函数
         get_file_path()             一级函数    记录ENCODE的annotation及quantification文件绝对路径
         读取quantificaton文件
@@ -22,6 +25,20 @@ __functionVersion__ = "V1.1(Editor) 2023-10-12"
     读取参考基因组注释用函数
         pickRefAnnotation()         一级函数    读取参考基因组注释文件数据
 '''
+
+
+# 一级函数
+def strSplit(str):
+    '''
+    change:
+        将str按照<split>进行分割, 形成一个list
+            如果无法分割, 就新建一个list=[<str>, -1]
+    '''
+    if '.' in str:
+        str = str.split('.')
+    else:
+        str = [str, -1]
+    return str
 
 
 # 修饰器
@@ -223,6 +240,8 @@ def loadQuantification(filename, cutoff):
     else:
         df = pandas.read_csv(filename, sep='\t')
     df = df.loc[df[df.columns[-1]]>=cutoff, ["annot_gene_id", "annot_transcript_id", df.columns[-1]]]
+    df["annot_gene_id"] = df["annot_gene_id"].map(lambda x: strSplit(x)[0])
+    df["annot_transcript_id"] = df["annot_transcript_id"].map(lambda x: strSplit(x)[0])
     df = df.rename(columns={df.columns[-1]: "rep", "annot_gene_id": "geneId", "annot_transcript_id": "transcriptId"})
 
     return df
@@ -302,6 +321,7 @@ def loadAnnotation(total, sample, filename, type, geneIdSet, transcriptIdSet, ch
                 line = pickEncodeAnnotation(info=line, allowType=[type])
                 if line != None:
                     geneId = line.get("gene_id", "")
+                    [geneId, geneVersion] = strSplit(str=geneId)
                     geneName = line.get("gene_name", "")
                     geneStatus = line.get("gene_status", "")
                     geneBiotype = line.get("gene_type", "")
@@ -315,7 +335,7 @@ def loadAnnotation(total, sample, filename, type, geneIdSet, transcriptIdSet, ch
                     else:
                         pass
                     if geneId in geneIdSet:
-                        total.geneAdd(status=geneStatus, chr=chr, strand=strand, start=start, end=end, geneId=geneId, geneName=geneName, geneBiotype=geneBiotype)
+                        total.geneAdd(status=geneStatus, chr=chr, strand=strand, start=start, end=end, geneId=geneId, geneVersion=geneVersion, geneName=geneName, geneBiotype=geneBiotype)
                     else:
                         continue
             file.close()
@@ -326,7 +346,9 @@ def loadAnnotation(total, sample, filename, type, geneIdSet, transcriptIdSet, ch
                 if line is None:
                     continue
                 geneId = line.get("gene_id", "")
+                [geneId, geneVersion] = strSplit(str=geneId)
                 transcriptId = line.get("transcript_id", "")
+                [transcriptId, transcriptVersion] = strSplit(str=transcriptId)
                 transcriptName = line.get("transcript_name", "")
                 transcriptStatus = line.get("transcript_status", "")
                 transcriptBiotype = line.get("transcript_type", "")
@@ -346,6 +368,7 @@ def loadAnnotation(total, sample, filename, type, geneIdSet, transcriptIdSet, ch
                 # 添加transcript信息
                 total.geneDict[geneId].transcriptAdd(status=transcriptStatus,
                                                      transcriptId=transcriptId,
+                                                     transcriptVersion=transcriptVersion,
                                                      transcriptName=transcriptName,
                                                      transcriptBiotype=transcriptBiotype,
                                                      start=start,
@@ -361,8 +384,11 @@ def loadAnnotation(total, sample, filename, type, geneIdSet, transcriptIdSet, ch
                 line = pickEncodeAnnotation(info=line, allowType=["exon"])
                 if line != None:
                     geneId = line.get("gene_id", "")
+                    [geneId, geneVersion] = strSplit(str=geneId)
                     transcriptId = line.get("transcript_id", "")
+                    [transcriptId, transcriptVersion] = strSplit(str=transcriptId)
                     exonId = line.get("exon_id", "")
+                    [exonId, exonVersion] = strSplit(str=exonId)
                     exonStatus = line.get("exon_status", "")
                     chr = line.get("chr", "")
                     strand = line.get("strand", "")
@@ -380,7 +406,7 @@ def loadAnnotation(total, sample, filename, type, geneIdSet, transcriptIdSet, ch
                     if "ENSE" not in exonId:
                         # 如果exonId为纯数字, 则在exonId前添加样本名
                         exonId = "{}_{}".format(sample, exonId)
-                    total.exonAdd(geneId=geneId, exonId=exonId, status=exonStatus, chr=chr, strand=strand, start=start, end=end)
+                    total.exonAdd(geneId=geneId, exonId=exonId, exonVersion=exonVersion, status=exonStatus, chr=chr, strand=strand, start=start, end=end)
                     # 此时的indexExon中存在有可被映射的exonId, 需要在后续步骤中进行处理
                     temp = exonIndex[chr].get(transcriptId, [])
                     temp.append(exonId)
@@ -457,11 +483,11 @@ def loadData(total, sampleCellline, sampleFilePath, cutoff, chrList, tabLevel=0)
     cutoff = cutoff
     chrList = chrList
 
-    progress = 0
-    progressTotal = len(sampleFilePath.keys())
-    for sample in sampleFilePath.keys():
-        progress += 1
-        print("{}[Progress]{}/{}".format('\t'*(tabLevel+1), progress, progressTotal), end='\r')
+    # progress = 0
+    # progressTotal = len(sampleFilePath.keys())
+    for sample in tqdm.tqdm(sampleFilePath.keys()):
+        # progress += 1
+        # print("{}[Progress]{}/{}".format('\t'*(tabLevel+1), progress, progressTotal), end='\r')
         total = loadSample(total=total, sampleCellline=sampleCellline, sampleFilePath=sampleFilePath, sample=sample, cutoff=cutoff, chrList=chrList)
 
     return total
