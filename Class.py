@@ -418,7 +418,7 @@ class Total(object):
             geneId1, str, this value should be geneId of transcriptId1
             geneId2, str, this value should be geneId of transcriptId2
         change:
-            合并两个transcript
+            合并两个transcript, 倾向于保留transcriptId1
                 0. 检查两transcriptId是否位于同一gene对象中
                     若位于同一gene对象中, 则直接调用gene对象中的_transcriptMerge()
                 1. 若两transcriptId位于不同的gene
