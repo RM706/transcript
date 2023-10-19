@@ -5,7 +5,7 @@ import time
 import gzip
 import tqdm
 
-__functionVersion__ = "V1.1(Editor) 2023-10-12"
+__functionVersion__ = "V1.2(Editor) 2023-10-19"
 
 '''
 函数说明:
@@ -31,14 +31,22 @@ __functionVersion__ = "V1.1(Editor) 2023-10-12"
 def strSplit(str):
     '''
     change:
-        将str按照<split>进行分割, 形成一个list
-            如果无法分割, 就新建一个list=[<str>, -1]
+        将str按照<split>进行分割, 形成一个list, 如果无法分割, 就新建一个list=[<str>, -1]
+        如果version中含有_PAR_Y, 就将该字符串从version挪到id中, 从version中删除该字符串, 原因参考后附的url
     '''
+    str = str
+
     if '.' in str:
-        str = str.split('.')
+        [id, version] = str.split('.')
+        if "_PAR_Y" in version:
+            # https://www.gencodegenes.org/pages/faq.html
+            # Why do some gene and transcript ids start with ENSGR or ENSTR in the GTF/GFF3?
+            id = id + "_PAR_Y"
+            version = version.replace("_PAR_Y", '')
     else:
-        str = [str, -1]
-    return str
+        id = str
+        version = -1
+    return [id, version]
 
 
 # 修饰器
@@ -213,12 +221,12 @@ def pickRefAnnotation(info, allowType=None, tabLevel=0):
     info["strand"] = strand
 
     # 将版本号添加到id中
-    if "exon" in allowType:
+    '''if "exon" in allowType:
         info["exon_id"] = "{}.{}".format(info["exon_id"], info["exon_version"])
     if "transcript" in allowType:
         info["transcript_id"] = "{}.{}".format(info["transcript_id"], info["transcript_version"])
     if "gene" in allowType:
-        info["gene_id"] = "{}.{}".format(info["gene_id"], info["gene_version"])
+        info["gene_id"] = "{}.{}".format(info["gene_id"], info["gene_version"])'''
 
     return info
 
