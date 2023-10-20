@@ -402,8 +402,12 @@ class Total(object):
         try:
             self.exonIndex[self.exonDict[deletedExonId].chr][self.exonDict[deletedExonId].start][self.exonDict[deletedExonId].end] = remainedExonId
         except KeyError as k:
-            print(k)
-            print("[Warning]_exonMerge()--remained:{}, delete:{}, start:{}, end:{}".format(remainedExonId, deletedExonId, self.exonDict[deletedExonId].start, self.exonDict[deletedExonId].end))
+            # 目前出现问题的可能原因是: 在exon经过校正后其start及end发生了改变
+            #   但在self.exonIndex中其start及end的位置并没有发生改变
+            #   所以在根据exon的新的start/end修改self.exonIndex时, self.exonIndex中无法找到对应的位置
+            pass
+            #print(k)
+            #print("[Warning]_exonMerge()--remained:{}, delete:{}, start:{}, end:{}".format(remainedExonId, deletedExonId, self.exonDict[deletedExonId].start, self.exonDict[deletedExonId].end))
 
         # self.exonDict中删除不可靠exon
         self.exonDict.pop(deletedExonId)
@@ -1686,7 +1690,13 @@ class Gene(object):
             self.transcriptDict[remainedTranscriptId].countsExpression[sample] = temp
 
         # 修改transcriptIndex
-        self.transcriptIndex[self.transcriptDict[deletedTranscriptId].start][self.transcriptDict[deletedTranscriptId].end] = remainedTranscriptId
+        try:
+            self.transcriptIndex[self.transcriptDict[deletedTranscriptId].start][self.transcriptDict[deletedTranscriptId].end] = remainedTranscriptId
+        except KeyError as k:
+            # 目前这个地方出现问题的原因:
+            # 在reIndex()时, transcript的start/end与index中的start/end不一致(校正后改变了start/end的位置)
+            k
+            pass
 
         # 删除deletedTranscript
         self.transcriptDict.pop(deletedTranscriptId)
