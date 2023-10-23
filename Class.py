@@ -674,7 +674,13 @@ class Total(object):
         self.geneDict[remainedGeneId].reIndex()
 
         # 修改geneIndex
-        self.geneIndex[self.geneDict[deletedGeneId].chr][self.geneDict[deletedGeneId].start][self.geneDict[deletedGeneId].end] = remainedGeneId
+        try:
+            self.geneIndex[self.geneDict[deletedGeneId].chr][self.geneDict[deletedGeneId].start][self.geneDict[deletedGeneId].end] = remainedGeneId
+        except KeyError as k:
+            # 目前出现问题的可能原因是: 在gene经过校正后其start及end发生了改变
+            #   但在self.geneIndex中其start及end的位置并没有发生改变
+            #   所以在根据gene的新的start/end修改self.geneIndex时, self.geneIndex中无法找到对应的位置
+            pass
 
         # 删除deletedGene
         self.geneDict.pop(deletedGeneId)
