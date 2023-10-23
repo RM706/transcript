@@ -4,8 +4,9 @@ import pandas
 import time
 import gzip
 import tqdm
+from plotly import graph_objects as go
 
-__functionVersion__ = "V1.2(Editor) 2023-10-19"
+__functionVersion__ = "V1.3(Editor) 2023-10-23"
 
 '''
 函数说明:
@@ -24,6 +25,9 @@ __functionVersion__ = "V1.2(Editor) 2023-10-19"
         loadData()                  四级函数    读取所有样本的数据
     读取参考基因组注释用函数
         pickRefAnnotation()         一级函数    读取参考基因组注释文件数据
+    绘图使用
+        makeGeneModel               一级函数    用于绘制gene model图
+
 '''
 
 
@@ -499,3 +503,62 @@ def loadData(total, sampleCellline, sampleFilePath, cutoff, chrList, tabLevel=0)
         total = loadSample(total=total, sampleCellline=sampleCellline, sampleFilePath=sampleFilePath, sample=sample, cutoff=cutoff, chrList=chrList)
 
     return total
+
+
+# 一级函数
+def makeGeneModel(data, xaxisMin=None, xaxisMax=None, title=None):
+    '''
+    input:
+        data\t pandas.DataFrame\t 每一行代表一个exon, 列名为["TSS", "TES"]
+        xaxisMin\t int\t =min(TSS), xaxis的最小值
+        xaxisMax\t int\t =max(TES), xaxis的最大值
+        title\t str\t ="gene model"
+    change:
+        绘制exon在gene上的示意图
+    '''
+    data = data
+    xaxisMin = (xaxisMin, min(data["TSS"]))[xaxisMin is None]
+    xaxisMax = (xaxisMax, max(data["TES"]))[xaxisMax is None]
+    title = (title, "gene model")[title is None]
+
+    fig = go.Figure()
+
+    fig = fig.add_shape(type="line",
+                        x0=xaxisMin, y0=1, x1=xaxisMax, y1=1,
+                        line={"color": "black",
+                              "width": 5})
+
+    trace = go.Bar(x=data["TES"]-data["TSS"],
+                   y=[1 for i in range(0, data.shape[0])],
+                   width=1,
+                   base=data["TSS"],
+                   orientation='h',
+                   marker={"color": "black",
+                           "line": {"color": "black",
+                                    "width": 0}
+                           },
+                   )
+    fig = fig.add_trace(trace)
+
+    layout = {"width": 700, "height": 100,
+              "title": {"text": title,
+                        "font": {"family": "Arial",
+                                 "color": "black",
+                                 "size": 12,},
+                        "x": 0.1},
+              "margin": {'l':25, 'r':25, 't':25, 'b':25}, 
+              "xaxis": {"showline": False,
+                        "showticklabels": False,
+                        "range": [0, 100],
+                        "showgrid": False,},
+              "yaxis": {"showline": False,
+                        "showticklabels": False,
+                        "showgrid": False,
+                        "range": [0, 2],
+                        },
+              "paper_bgcolor": "white",
+              "plot_bgcolor":"white",
+              }
+    fig = fig.update_layout(layout)
+
+    return fig
