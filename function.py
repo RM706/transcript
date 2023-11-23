@@ -495,11 +495,7 @@ def loadData(total, sampleCellline, sampleFilePath, cutoff, chrList, tabLevel=0)
     cutoff = cutoff
     chrList = chrList
 
-    # progress = 0
-    # progressTotal = len(sampleFilePath.keys())
     for sample in tqdm.tqdm(sampleFilePath.keys(), desc="Sample", leave=True):
-        # progress += 1
-        # print("{}[Progress]{}/{}".format('\t'*(tabLevel+1), progress, progressTotal), end='\r')
         total = loadSample(total=total, sampleCellline=sampleCellline, sampleFilePath=sampleFilePath, sample=sample, cutoff=cutoff, chrList=chrList)
 
     return total
